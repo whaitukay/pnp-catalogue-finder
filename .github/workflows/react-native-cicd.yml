@@ -54,7 +54,7 @@ jobs:
         run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
 
       - name: 📦 Setup npm cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.npm-cache-dir-path.outputs.dir }}
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
@@ -181,12 +181,15 @@ jobs:
               issue_number: prNum,
               body: `## 📱 Snapshot build ready\n\nA development APK has been uploaded to Firebase App Distribution.\n\nTesters in the **testers** group will receive an email to download and install it.\n\n> Built from commit ${shortSha}`,
             });
+
   build-and-deploy:
     needs: test
     if: |
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.buildType != 'snapshot')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
@@ -258,6 +261,14 @@ jobs:
             echo "metro.config.js updated"
           fi
 
+      - name: 📋 Read current version
+        id: current_version
+        run: |
+          VERSION=$(jq -r '.expo.version' app.json)
+          VERSION_CODE=$(jq -r '.expo.android.versionCode' app.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "versionCode=$VERSION_CODE" >> $GITHUB_OUTPUT
+
       - name: 📱 Build Development APK
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'dev' || github.event_name == 'push'
         run: |
@@ -265,16 +276,6 @@ jobs:
           eas build --platform android --profile development --local --non-interactive --output=./app-dev.apk
         env:
           NODE_ENV: development
-
-      - name: 🚀 Upload Dev APK to Firebase App Distribution
-        if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'dev' || github.event_name == 'push'
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
-          groups: stable
-          file: ./app-dev.apk
-          releaseNotes: "Dev build from main — commit ${{ github.sha }}"
 
       - name: 📱 Build Production APK
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod-apk' || github.event_name == 'push'
@@ -284,6 +285,23 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: 🚀 Upload Dev APK to Firebase App Distribution
+        if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'dev' || github.event_name == 'push'
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
+          groups: stable
+          file: ./app-dev.apk
+          releaseNotes: |
+            v${{ steps.current_version.outputs.version }} (#${{ steps.current_version.outputs.versionCode }})
+            
+            ${{ github.event.head_commit.message }}
+            
+            Committed by: ${{ github.event.head_commit.author.name }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+
       - name: 🚀 Upload Production APK to Firebase App Distribution
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod-apk' || github.event_name == 'push'
         uses: wzieba/Firebase-Distribution-Github-Action@v1
@@ -292,13 +310,51 @@ jobs:
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
           groups: stable
           file: ./app-prod.apk
-          releaseNotes: "Production APK from main — commit ${{ github.sha }}"
+          releaseNotes: |
+            v${{ steps.current_version.outputs.version }} (#${{ steps.current_version.outputs.versionCode }})
+            
+            ${{ github.event.head_commit.message }}
+            
+            Committed by: ${{ github.event.head_commit.author.name }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
 
       - name: 🚀 Publish to Expo
-        if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'publish-expo'
-        run: eas update --auto
+        if: github.event_name == 'push' || github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'publish-expo'
+        run: eas update --auto --platform android
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📋 Bump version numbers
+        id: bump_version
+        run: |
+          # Read current values
+          CURRENT_VERSION=$(jq -r '.expo.version' app.json)
+          CURRENT_VERSION_CODE=$(jq -r '.expo.android.versionCode' app.json)
+
+          # Increment patch version (e.g. 1.0.2 -> 1.0.3)
+          NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1; print}' OFS=.)
+          # Increment versionCode
+          NEW_VERSION_CODE=$((CURRENT_VERSION_CODE + 1))
+
+          # Write back to app.json
+          jq --arg v "$NEW_VERSION" --argjson vc "$NEW_VERSION_CODE" \
+            '.expo.version = $v | .expo.android.versionCode = $vc' \
+            app.json > app.json.tmp && mv app.json.tmp app.json
+
+          echo "New version: $NEW_VERSION ($NEW_VERSION_CODE)"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "versionCode=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: 📋 Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app.json
+          git commit -m "chore: bump version to ${{ steps.bump_version.outputs.version }} [skip ci]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📦 Upload build artifacts to GitHub
         uses: actions/upload-artifact@v4
