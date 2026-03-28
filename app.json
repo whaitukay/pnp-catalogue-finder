@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Catalogue Finder",
+    "slug": "catalogue-finder-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": [
+      "android"
+    ],
+    "android": {
+      "package": "com.github.whaitukay.pnp-catalogue-finder"
+    },
+    "plugins": [
+      "expo-mail-composer",
+      "expo-sharing"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1cd3f4c9-7618-4255-84e8-7493b9dc9bac"
+      }
+    }
+  }
+}

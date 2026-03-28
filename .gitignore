@@ -1,0 +1,7 @@
+exports/
+.cache/
+node_modules
+.expo
+dist-test
+.android-paths.json
+android
