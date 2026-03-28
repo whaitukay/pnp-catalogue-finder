@@ -164,6 +164,16 @@ export function DumpsScreen({
   );
 }
 
+/**
+ * Render a card summarizing a cached catalogue dump for the library view.
+ *
+ * Renders title, timing badge, item counts, promotion date range, last-updated timestamp, and action buttons.
+ *
+ * @param item - Manifest entry containing metadata for the catalogue dump
+ * @param onOpenDump - Callback invoked with the catalogueId when the "Open dump" button is pressed
+ * @param onEmailDump - Callback invoked with the catalogueId when the "Email CSV" button is pressed
+ * @returns A React element representing the dump library card
+ */
 function DumpLibraryCard({
   item,
   onOpenDump,
@@ -183,7 +193,6 @@ function DumpLibraryCard({
       <View style={sharedStyles.cardHeaderRow}>
         <View style={sharedStyles.cardHeaderText}>
           <Text style={sharedStyles.cardTitle}>{item.label}</Text>
-          {/* <Text style={sharedStyles.metaText}>{item.slug}</Text> */}
         </View>
         {timingStatus === "active" ? (
           <StatusBadge label="Active" variant="success" />

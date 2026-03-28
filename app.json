@@ -12,6 +12,10 @@
       "runtimeVersion": {
         "policy": "appVersion"
       },
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app-splash-icon.png",
+        "backgroundColor": "#232323"
+      },
       "versionCode": 1
     },
     "plugins": [
@@ -43,9 +47,6 @@
     },
     "owner": "whaitukay",
     "icon": "./assets/images/app-splash-icon.png",
-    "updates": {
-      "url": "https://u.expo.dev/5f0533d7-d0be-417e-a778-dce081a22151"
-    },
     "ios": {}
   }
 }

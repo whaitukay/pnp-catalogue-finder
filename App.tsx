@@ -67,6 +67,13 @@ function errorMessage(error: unknown): string {
   return String(error ?? "Unknown error");
 }
 
+/**
+ * Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Dumps, Scan URL, Settings).
+ *
+ * The component maintains UI navigation and data state (settings, discovered targets, cached catalogue dumps, selected dump, sync summary, pagination and search), exposes actions for refreshing/discovering catalogues, pulling/syncing catalogue data, scanning from a URL, opening cached dumps, emailing/sharing CSV exports, and saving settings, and passes derived and control props down to the screen components.
+ *
+ * @returns The app's root React element.
+ */
 export default function App(): React.ReactElement {
   const [activeTab, setActiveTab] = useState<TabKey>("catalogues");
   const [storeCode, setStoreCode] = useState(DEFAULT_SETTINGS.storeCode);
@@ -192,11 +199,6 @@ export default function App(): React.ReactElement {
         discoveryError = errorMessage(error);
       }
 
-      // const windows: Record<
-      //   string,
-      //   { promotionStartDate: string | null; promotionEndDate: string | null }
-      // > = {};
-
       const cachedById = new Map(cached.map((entry) => [entry.catalogueId, entry] as const));
       for (const target of discovered) {
         const catalogueId = catalogueIdForTarget(targetStoreCode, target);
@@ -204,22 +206,10 @@ export default function App(): React.ReactElement {
         if (cachedEntry?.catalogueStartDate || cachedEntry?.catalogueEndDate) {
           continue;
         }
-        // try {
-        //   const window = await probeCatalogueWindow(target, targetStoreCode);
-        //   if (window.promotionStartDate || window.promotionEndDate) {
-        //     windows[catalogueId] = {
-        //       promotionStartDate: window.promotionStartDate,
-        //       promotionEndDate: window.promotionEndDate,
-        //     };
-        //   }
-        // } catch {
-        //   // Ignore per-catalogue probe failures; they can still be downloaded normally.
-        // }
       }
 
       setCachedCatalogues(cached);
       setSiteTargets(discovered);
-      // setProvisionalWindows(windows);
 
       if (discoveryError) {
         setErrorText(
@@ -287,14 +277,14 @@ export default function App(): React.ReactElement {
   }
 
   async function pullSingleCatalogue(item: DirectoryItem): Promise<void> {
-   
+
     setBusyLabel(`Pulling ${item.label}...`);
     setErrorText("");
     setStatusMessage("");
 
     try {
       const nextSettings = await persistSettings();
-      const outcome = await scanCatalogue(item.pullSource, nextSettings.storeCode, false);
+      const outcome = await scanCatalogue(item.pullSource, nextSettings.storeCode, false, item.label);
       await refreshCatalogueData({
         nextStoreCode: nextSettings.storeCode,
         showBusy: false,
@@ -330,7 +320,7 @@ export default function App(): React.ReactElement {
   }
 
   async function runScan(): Promise<void> {
-   
+
     setBusyLabel("Scanning catalogue from URL...");
     setErrorText("");
     setStatusMessage("");

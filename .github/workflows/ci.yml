@@ -1,0 +1,265 @@
+name: React Native CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "docs/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      buildType:
+        type: choice
+        description: "Build type to run"
+        options:
+          - dev
+          - prod-apk
+          - publish-expo
+          - snapshot
+          - all
+      prNumber:
+        description: "PR number to comment on (only needed for snapshot)"
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+  NODE_OPTIONS: --openssl-legacy-provider
+  EAS_CLI_VERSION: "16.4.0"
+
+jobs:
+  check-skip:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    permissions:
+      contents: read
+    steps:
+      - name: Skip CI check
+        run: echo "Proceeding with workflow"
+
+  test:
+    needs: check-skip
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 🏗 Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-node
+      - name: 🧪 Run TypeScript check
+        run: npx tsc
+
+  snapshot:
+    needs: test
+    timeout-minutes: 45
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.buildType == 'snapshot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: 🏗 Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build
+        with:
+          eas-version: ${{ env.EAS_CLI_VERSION }}
+          configure-gradle: 'true'
+
+      - name: 📱 Build Snapshot APK
+        run: |
+          export PATH=~/.npm-global/bin:$PATH
+          export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
+          eas build --platform android --profile production-apk --local --non-interactive \
+            --output=./app-snapshot-pr.apk
+        env:
+          NODE_ENV: production
+
+      - name: 🚀 Upload to Firebase
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
+          groups: testers
+          file: ./app-snapshot-pr.apk
+          releaseNotes: "Snapshot build — commit ${{ github.sha }}"
+
+      - name: 💬 Comment on PR
+        uses: actions/github-script@v7
+        if: ${{ github.event.inputs.prNumber != '' }}
+        with:
+          script: |
+            const prNum = parseInt('${{ github.event.inputs.prNumber }}');
+            if (isNaN(prNum) || prNum <= 0) { return; }
+            const shortSha = '${{ github.sha }}'.substring(0, 7);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNum,
+              body: `## 📱 Snapshot build ready\n\nTesters in the **testers** group will receive an email to download and install it.\n\n> Built from commit ${shortSha}`,
+            });
+
+  build-dev:
+    needs: test
+    timeout-minutes: 45
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.buildType == 'dev' || github.event.inputs.buildType == 'all'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 🏗 Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build
+        with:
+          eas-version: ${{ env.EAS_CLI_VERSION }}
+          configure-gradle: 'true'
+
+      - name: 📋 Read current version
+        id: current_version
+        run: |
+          echo "version=$(jq -r '.expo.version' app.json)" >> $GITHUB_OUTPUT
+          echo "versionCode=$(jq -r '.expo.android.versionCode' app.json)" >> $GITHUB_OUTPUT
+
+      - name: 📱 Build Development APK
+        run: |
+          export PATH=~/.npm-global/bin:$PATH
+          export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
+          eas build --platform android --profile development --local --non-interactive \
+            --output=./app-dev.apk
+        env:
+          NODE_ENV: development
+
+      - name: 🚀 Upload to Firebase
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
+          groups: stable
+          file: ./app-dev.apk
+          releaseNotes: |
+            v${{ steps.current_version.outputs.version }} (#${{ steps.current_version.outputs.versionCode }})
+            ${{ github.event.head_commit.message }}
+            Committed by: ${{ github.event.head_commit.author.name }}
+            Branch: ${{ github.ref_name }} — ${{ github.sha }}
+
+      - name: 📦 Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-dev
+          path: ./app-dev.apk
+          retention-days: 7
+
+  build-prod:
+    needs: test
+    timeout-minutes: 45
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.buildType == 'prod-apk' || github.event.inputs.buildType == 'all'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 🏗 Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build
+        with:
+          eas-version: ${{ env.EAS_CLI_VERSION }}
+          configure-gradle: 'true'
+
+      - name: 📋 Read current version
+        id: current_version
+        run: |
+          echo "version=$(jq -r '.expo.version' app.json)" >> $GITHUB_OUTPUT
+          echo "versionCode=$(jq -r '.expo.android.versionCode' app.json)" >> $GITHUB_OUTPUT
+
+      - name: 📱 Build Production APK
+        run: |
+          export PATH=~/.npm-global/bin:$PATH
+          export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
+          eas build --platform android --profile production-apk --local --non-interactive \
+            --output=./app-prod.apk
+        env:
+          NODE_ENV: production
+
+      - name: 🚀 Upload to Firebase
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
+          groups: stable
+          file: ./app-prod.apk
+          releaseNotes: |
+            v${{ steps.current_version.outputs.version }} (#${{ steps.current_version.outputs.versionCode }})
+            ${{ github.event.head_commit.message }}
+            Committed by: ${{ github.event.head_commit.author.name }}
+            Branch: ${{ github.ref_name }} — ${{ github.sha }}
+
+      - name: 📦 Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-prod
+          path: ./app-prod.apk
+          retention-days: 7
+
+  post-build:
+    needs: [build-dev, build-prod]
+    timeout-minutes: 15
+    if: |
+      always() &&
+      (needs.build-dev.result == 'success' || needs.build-dev.result == 'skipped') &&
+      (needs.build-prod.result == 'success' || needs.build-prod.result == 'skipped') &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'publish-expo')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 🏗 Checkout repository
+        uses: actions/checkout@v4
+      
+      - uses: ./.github/actions/setup-build
+        with:
+          eas-version: ${{ env.EAS_CLI_VERSION }}
+          configure-gradle: 'false'
+
+      - name: 🚀 Publish to Expo
+        run: |
+          export PATH=~/.npm-global/bin:$PATH
+          eas update --auto --platform android
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📋 Bump version numbers
+        id: bump_version
+        run: |
+          CURRENT_VERSION=$(jq -r '.expo.version' app.json)
+          CURRENT_VERSION_CODE=$(jq -r '.expo.android.versionCode' app.json)
+          NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1; print}' OFS=.)
+          NEW_VERSION_CODE=$((CURRENT_VERSION_CODE + 1))
+          jq --arg v "$NEW_VERSION" --argjson vc "$NEW_VERSION_CODE" \
+            '.expo.version = $v | .expo.android.versionCode = $vc' \
+            app.json > app.json.tmp && mv app.json.tmp app.json
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: 📋 Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app.json
+          git commit -m "chore: bump version to ${{ steps.bump_version.outputs.version }} [skip ci]"
+          git pull --rebase origin main
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

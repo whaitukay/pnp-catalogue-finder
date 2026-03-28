@@ -1,0 +1,59 @@
+name: Setup Build Environment
+description: Full build environment setup — node, npm, EAS CLI, package.json fix, Gradle config
+
+inputs:
+  eas-version:
+    description: EAS CLI version to install
+    required: true
+  configure-gradle:
+    description: Whether to configure Gradle JVM args (set to 'true' for APK build jobs)
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: 🏗 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+        cache: "npm"
+
+    - name: 📦 Cache npm
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: ${{ runner.os }}-npm-
+
+    - name: 📦 Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: 📦 Cache EAS CLI
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm-global
+        key: eas-cli-${{ runner.os }}-${{ inputs.eas-version }}
+
+    - name: 📦 Install EAS CLI
+      shell: bash
+      run: |
+        export NPM_CONFIG_PREFIX=~/.npm-global
+        export PATH=~/.npm-global/bin:$PATH
+        npm install -g eas-cli@${{ inputs.eas-version }}
+        eas --version
+
+    - name: 📋 Fix package.json main entry
+      shell: bash
+      run: |
+        jq '.main = "node_modules/expo/AppEntry.js"' package.json > package.json.tmp \
+          && mv package.json.tmp package.json
+
+    - name: 📋 Configure Gradle JVM args
+      if: inputs.configure-gradle == 'true'
+      shell: bash
+      run: |
+        mkdir -p ~/.gradle
+        echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" \
+          >> ~/.gradle/gradle.properties
