@@ -28,10 +28,8 @@ export function parseDateString(value: string | null | undefined): number | null
     return null;
   }
 
-  console.log({trimmed})
   if (/^\d{1,2}\s+[A-Za-z]+\s+\d{4}$/.test(trimmed)) {
-    const parsed = Date.parse(`$trimmed GMT+2`);
-    console.log(parsed)
+    const parsed = Date.parse(`${trimmed} GMT+2`);
     return Number.isNaN(parsed) ? null : parsed;
   }
 

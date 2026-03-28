@@ -4,6 +4,7 @@
     "slug": "catalogue-finder-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
+    "entryPoint": "src/index.js",
     "platforms": [
       "android"
     ],

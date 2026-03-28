@@ -261,7 +261,6 @@ export default function App(): React.ReactElement {
   }, []);
 
   async function runPull(forceRefresh: boolean): Promise<void> {
-    const nextSettings = await persistSettings();
     setBusyLabel(
       forceRefresh ? "Refreshing all visible site catalogues..." : "Pulling missing site catalogues...",
     );
@@ -269,6 +268,7 @@ export default function App(): React.ReactElement {
     setStatusMessage("");
 
     try {
+      const nextSettings = await persistSettings();
       const summary = await syncAllMissingCatalogues(nextSettings.storeCode, forceRefresh);
       setSyncSummary(summary);
       await refreshCatalogueData({
@@ -287,12 +287,13 @@ export default function App(): React.ReactElement {
   }
 
   async function pullSingleCatalogue(item: DirectoryItem): Promise<void> {
-    const nextSettings = await persistSettings();
+   
     setBusyLabel(`Pulling ${item.label}...`);
     setErrorText("");
     setStatusMessage("");
 
     try {
+      const nextSettings = await persistSettings();
       const outcome = await scanCatalogue(item.pullSource, nextSettings.storeCode, false);
       await refreshCatalogueData({
         nextStoreCode: nextSettings.storeCode,
@@ -329,12 +330,13 @@ export default function App(): React.ReactElement {
   }
 
   async function runScan(): Promise<void> {
-    const nextSettings = await persistSettings();
+   
     setBusyLabel("Scanning catalogue from URL...");
     setErrorText("");
     setStatusMessage("");
 
     try {
+      const nextSettings = await persistSettings();
       const outcome = await scanCatalogue(scanUrl, nextSettings.storeCode, false);
       setSelectedDump(outcome.dump);
       await refreshCatalogueData({

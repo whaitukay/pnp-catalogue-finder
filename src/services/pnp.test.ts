@@ -109,8 +109,8 @@ describe("pnp mapper regression coverage", () => {
     expect(outcome.dump.catalogueId).toBe("WC21:burger-fridays");
     expect(outcome.dump.itemCount).toBe(1);
     expect(outcome.dump.barcodeCount).toBe(1);
-    expect(outcome.dump.promotionStartDate).toBe("2026-03-26T22:00:00.000Z");
-    expect(outcome.dump.promotionEndDate).toBe("2026-03-27T21:59:59.000Z");
+    expect(outcome.dump.catalogueStartDate).toBe("2026-03-26T22:00:00.000Z");
+    expect(outcome.dump.catalogueEndDate).toBe("2026-03-27T21:59:59.000Z");
     expect(outcome.dump.expired).toBe(false);
 
     expect(outcome.dump.rows).toHaveLength(1);

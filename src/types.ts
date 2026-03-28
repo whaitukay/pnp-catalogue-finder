@@ -182,8 +182,8 @@ export type CatalogueDump = {
   exportedAt: number;
   itemCount: number;
   barcodeCount: number;
-  promotionStartDate: string | null;
-  promotionEndDate: string | null;
+  catalogueStartDate: string | null;
+  catalogueEndDate: string | null;
   expired: boolean;
   csvUri: string;
   rows: ProductRow[];

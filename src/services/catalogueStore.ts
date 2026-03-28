@@ -70,8 +70,16 @@ async function readJson<T>(uri: string, fallback: T): Promise<T> {
     }
     const raw = await FileSystem.readAsStringAsync(uri);
     return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
+  } catch (error){
+    if (error instanceof Error) {
+      // Safely access properties if it is an Error instance
+      console.error("Error during readJson:", error.message);
+      throw error; // Re-throw the original error
+    } else {
+      // Handle cases where a non-Error value was thrown
+      console.error("An unknown error occurred:", error);
+      throw new Error("An unknown error was caught");
+    }
   }
 }
 
@@ -294,10 +302,10 @@ function normalizeDumpValue(dump: unknown): CatalogueDump {
   const raw = dump as CatalogueDump | null;
   const rows = Array.isArray(raw?.rows) ? raw.rows.map((row) => normalizeRow(row)) : [];
   const promotionStartDate =
-    normalizeNullableText(raw?.promotionStartDate) ??
+    normalizeNullableText(raw?.catalogueStartDate) ??
     minDate(rows.map((row) => row.promotionStartDate));
   const promotionEndDate =
-    normalizeNullableText(raw?.promotionEndDate) ??
+    normalizeNullableText(raw?.catalogueEndDate) ??
     maxDate(rows.map((row) => row.promotionEndDate));
   const barcodeCount =
     typeof raw?.barcodeCount === "number" && Number.isFinite(raw.barcodeCount)
@@ -321,8 +329,8 @@ function normalizeDumpValue(dump: unknown): CatalogueDump {
         ? raw.itemCount
         : rows.length,
     barcodeCount,
-    promotionStartDate,
-    promotionEndDate,
+    catalogueStartDate: promotionStartDate,
+    catalogueEndDate: promotionEndDate,
     expired:
       typeof raw?.expired === "boolean" ? raw.expired : isExpired(promotionEndDate),
     csvUri: normalizeText(raw?.csvUri),
@@ -422,11 +430,11 @@ const CSV_FIELD_DEFINITIONS: Record<ExportFieldKey, CsvFieldDefinition> = {
   },
   catalogueStartDate: {
     header: "catalogue_start_date",
-    getValue: (_row, dump) => formatDateOnlyForCsv(dump.promotionStartDate),
+    getValue: (_row, dump) => formatDateOnlyForCsv(dump.catalogueStartDate),
   },
   catalogueEndDate: {
     header: "catalogue_end_date",
-    getValue: (_row, dump) => formatDateOnlyForCsv(dump.promotionEndDate),
+    getValue: (_row, dump) => formatDateOnlyForCsv(dump.catalogueEndDate),
   },
   name: {
     header: "name",
@@ -603,8 +611,8 @@ export async function rebuildAllCsvExports(): Promise<number> {
       ...entry,
       csvUri: persisted.csvUri,
       dumpUri: persisted.dumpUri,
-      promotionStartDate: persisted.dump.promotionStartDate,
-      promotionEndDate: persisted.dump.promotionEndDate,
+      promotionStartDate: persisted.dump.catalogueStartDate,
+      promotionEndDate: persisted.dump.catalogueEndDate,
       expired: persisted.dump.expired,
       itemCount: persisted.dump.itemCount,
       barcodeCount: persisted.dump.barcodeCount,

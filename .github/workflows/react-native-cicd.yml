@@ -64,8 +64,7 @@ jobs:
       - name: 🧪 Run TypeScript check
         run: npx tsc
 
-  # ── NEW: runs on every PR, uploads a dev APK as a downloadable artifact ──
-  snapshot:
+    # Manual snapshot build, uploads a dev APK as a downloadable artifact ──  snapshot:
     needs: test
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.buildType == 'snapshot'
     runs-on: ubuntu-latest
@@ -84,7 +83,7 @@ jobs:
         run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
 
       - name: 📦 Setup npm cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.npm-cache-dir-path.outputs.dir }}
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
@@ -156,18 +155,19 @@ jobs:
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
           groups: testers
           file: ./app-snapshot-pr.apk
-          releaseNotes: "Snapshot build for PR #${{ github.event.inputs.prNumber }} — commit ${{ github.sha }}"
+          releaseNotes: "Snapshot build — commit ${{ github.sha }}"
 
       - name: 💬 Comment Firebase link on PR
         uses: actions/github-script@v7
         if: github.event.inputs.prNumber != ''
         with:
           script: |
+            const shortSha = context.sha.substring(0, 7);
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: parseInt('${{ github.event.inputs.prNumber }}'),
-              body: `## 📱 Snapshot build ready\n\nA development APK has been uploaded to Firebase App Distribution.\n\nTesters in the **testers** group will receive an email to download and install it.\n\n> Built from commit ${{ github.sha }}`.substring(0, 7),
+              body: `## 📱 Snapshot build ready\n\nA development APK has been uploaded to Firebase App Distribution.\n\nTesters in the **testers** group will receive an email to download and install it.\n\n> Built from commit ${shortSha}`,
             });
 
   build-and-deploy:
@@ -191,7 +191,7 @@ jobs:
         run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
 
       - name: 📦 Setup npm cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.npm-cache-dir-path.outputs.dir }}
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
@@ -255,6 +255,16 @@ jobs:
         env:
           NODE_ENV: development
 
+      - name: 🚀 Upload Dev APK to Firebase App Distribution
+        if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'dev' || github.event_name == 'push'
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
+          groups: stable
+          file: ./app-dev.apk
+          releaseNotes: "Dev build from main — commit ${{ github.sha }}"
+
       - name: 📱 Build Production APK
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod-apk' || github.event_name == 'push'
         run: |
@@ -262,6 +272,16 @@ jobs:
           eas build --platform android --profile production-apk --local --non-interactive --output=./app-prod.apk
         env:
           NODE_ENV: production
+
+      - name: 🚀 Upload Production APK to Firebase App Distribution
+        if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod-apk' || github.event_name == 'push'
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
+          groups: stable
+          file: ./app-prod.apk
+          releaseNotes: "Production APK from main — commit ${{ github.sha }}"
 
       - name: 🚀 Publish to Expo
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'publish-expo'

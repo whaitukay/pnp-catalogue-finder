@@ -96,13 +96,18 @@ async function requestJson(
   url: string,
   init: RequestInit,
   retries = 3,
+  timeoutMs = 10_000,
 ): Promise<any> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       const response = await fetch(url, {
         ...init,
+        signal: controller.signal,
         headers: {
           ...DEFAULT_HEADERS,
           ...(init.headers ?? {}),
@@ -114,8 +119,8 @@ async function requestJson(
       if (!response.ok) {
         throw new Error(
           payload?.errors?.[0]?.message ||
-            payload?.errors?.[0]?.code ||
-            `${response.status} ${response.statusText}`.trim(),
+          payload?.errors?.[0]?.code ||
+          `${response.status} ${response.statusText}`.trim(),
         );
       }
 
@@ -129,10 +134,15 @@ async function requestJson(
 
       return payload;
     } catch (error) {
+
+      if (error instanceof Error && error.name === 'AbortError') throw error;
+
       lastError = error;
       if (attempt < retries) {
         await sleep(500 * attempt);
       }
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -298,20 +308,25 @@ function extractLinksFromHtml(content: string): string[] {
   return Array.from(decoded.matchAll(/href=["']([^"']+)["']/gi), (match) => match[1]);
 }
 
-function extractTitle(content:string): string | null  {
+function extractTitle(content: string): string | null {
   const decoded = decodeHtml(content);
   // <h2>Pick n Pay Weekend Specials</h2>
   const match = decoded?.match(/<h2>(.+)<\/h2>/);
-  if (match){
+  if (match) {
     return match[1]
   }
   return null
 }
 
+/**
+ * TODO: Infer the start year for cross-year validity ranges.
+ * When the CMS omits the first year, this always copies the end year onto the start date. 
+ * A range like Valid 28 December - 3 January 2026 is therefore recorded as starting in December 2026 instead of December 2025.
+ */
 function extractValidityDates(content: string): { validityStartDate: string | null; validityEndDate: string | null } {
   const decoded = decodeHtml(content);
   /*<p class="cat-validity-date">Valid 26 March - 29 March 2026</p>*/
-  const regex = /Valid (\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/;  
+  const regex = /Valid (\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/;
   const match = decoded?.match(regex);
   if (match) {
     return { validityStartDate: `${match[1]} ${match[2]} ${match[3] ?? match[6]}`, validityEndDate: `${match[4]} ${match[5]} ${match[6]}` };
@@ -399,11 +414,13 @@ function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
             continue;
           }
 
-          const title = extractTitle(component.content)
+          const content = typeof component.content === "string" ? component.content : "";
+          const title = content ? extractTitle(content) : null;
+          const validityDates = content
+            ? extractValidityDates(content)
+            : { validityStartDate: null, validityEndDate: null };
 
-
-          const validityDates = extractValidityDates(component.content);
-          if (title){
+          if (title) {
             target.label = title
           }
           const key = target.slug || target.label;
@@ -456,6 +473,17 @@ function normalizeDateCandidate(value: unknown): string | null {
     return null;
   }
 
+  /**
+   * TODO: Normalize bare calendar dates to explicit timestamps before using them in date comparisons.
+   * 
+   * normalizeDateCandidate() returns YYYY-MM-DD strings as-is, 
+   * but Date.parse() interprets these as UTC midnight (start of day), not as a whole calendar day. 
+   * This causes date ordering and expiry checks to be off by up to 24 hours. 
+   * 
+   * For example, a catalogue ending on 2026-03-29 will be considered expired at the start of 2026-03-29 instead of the end of the day.
+   * Convert bare calendar dates to explicit end-of-day ISO timestamps before returning from normalizeDateCandidate(), 
+   * or ensure all values passed to pickEarliest(), pickLatest(), and isExpired() use consistent representations.
+   */
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return trimmed;
   }
@@ -564,10 +592,10 @@ function pickLatest(values: Iterable<string>): string | null {
 function extractPromotionTextValue(promotion: any): string {
   return String(
     promotion?.promotionTextMessage ||
-      promotion?.description ||
-      promotion?.name ||
-      promotion?.title ||
-      "",
+    promotion?.description ||
+    promotion?.name ||
+    promotion?.title ||
+    "",
   ).trim();
 }
 
@@ -948,7 +976,8 @@ async function exportTarget(
   const details = await fetchProductDetails(products, storeCode, forceRefresh);
   const rows = buildRows(target, products, details);
   const barcodeCount = rows.filter((row) => row.barcodeFound).length;
-  const { promotionStartDate, promotionEndDate } = deriveDumpWindow(rows);
+  const catalogueStartDate = target.catalogueStartDate ?? null;
+  const catalogueEndDate = target.catalogueEndDate ?? null;
 
   const baseDump: CatalogueDump = {
     catalogueId: key,
@@ -961,9 +990,9 @@ async function exportTarget(
     exportedAt: Date.now(),
     itemCount: rows.length,
     barcodeCount,
-    promotionStartDate,
-    promotionEndDate,
-    expired: isExpired(promotionEndDate),
+    catalogueStartDate,
+    catalogueEndDate,
+    expired: isExpired(catalogueEndDate),
     csvUri: "",
     rows,
   };
@@ -983,8 +1012,8 @@ async function exportTarget(
     discoveredFrom: target.discoveredFrom || "",
     catalogueStartDate: target.catalogueStartDate,
     catalogueEndDate: target.catalogueEndDate,
-    promotionStartDate: persisted.dump.promotionStartDate,
-    promotionEndDate: persisted.dump.promotionEndDate,
+    promotionStartDate: persisted.dump.catalogueStartDate,
+    promotionEndDate: persisted.dump.catalogueEndDate,
     expired: persisted.dump.expired,
     csvUri: persisted.csvUri,
     dumpUri: persisted.dumpUri,
@@ -1003,8 +1032,8 @@ async function exportTarget(
       discoveredFrom: target.discoveredFrom || "",
       catalogueStartDate: target.catalogueStartDate,
       catalogueEndDate: target.catalogueEndDate,
-      promotionStartDate: persisted.dump.promotionStartDate,
-      promotionEndDate: persisted.dump.promotionEndDate,
+      promotionStartDate: persisted.dump.catalogueStartDate,
+      promotionEndDate: persisted.dump.catalogueEndDate,
       expired: persisted.dump.expired,
     },
     dump: includeDump ? persisted.dump : null,

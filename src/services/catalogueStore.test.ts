@@ -31,8 +31,8 @@ describe("catalogueStore CSV dump", () => {
       exportedAt: 1_774_608_000_000,
       itemCount: 1,
       barcodeCount: 1,
-      promotionStartDate: "2026-03-26T22:00:00+0000",
-      promotionEndDate: "2026-03-27T21:59:59+0000",
+      catalogueStartDate: "2026-03-26T22:00:00+0000",
+      catalogueEndDate: "2026-03-27T21:59:59+0000",
       expired: false,
       csvUri: "",
       rows: [

@@ -47,8 +47,8 @@ export function DumpsScreen({
 }: DumpsScreenProps): React.ReactElement {
   if (selectedDump) {
     const selectedDumpTiming = getCatalogueTimingStatus(
-      selectedDump.promotionStartDate,
-      selectedDump.promotionEndDate,
+      selectedDump.catalogueStartDate,
+      selectedDump.catalogueEndDate,
     );
 
     return (
@@ -84,7 +84,7 @@ export function DumpsScreen({
             {selectedDump.barcodeCount}/{selectedDump.itemCount} barcodes found
           </Text>
           <Text style={sharedStyles.metaText}>
-            {formatDateStampRange(selectedDump.promotionStartDate, selectedDump.promotionEndDate)}
+            {formatDateStampRange(selectedDump.catalogueStartDate, selectedDump.catalogueEndDate)}
           </Text>
           <Text style={sharedStyles.metaText}>
             Updated {formatTimestamp(selectedDump.exportedAt)}
