@@ -41,6 +41,7 @@ jobs:
 
   test:
     needs: check-skip
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - name: 🏗 Checkout repository
@@ -67,6 +68,7 @@ jobs:
 
   snapshot:
     needs: test
+    timeout-minutes: 25
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.buildType == 'snapshot'
     runs-on: ubuntu-latest
     permissions:
@@ -108,6 +110,11 @@ jobs:
           jq '.main = "node_modules/expo/AppEntry.js"' package.json > package.json.tmp && mv package.json.tmp package.json
           echo "Updated package.json main entry"
 
+      - name: 📋 Configure Gradle JVM args
+        run: |
+          mkdir -p ~/.gradle
+          echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" >> ~/.gradle/gradle.properties
+          
       - name: 📱 Build Snapshot APK
         run: |
           export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
@@ -148,6 +155,7 @@ jobs:
 
   build-dev:
     needs: test
+    timeout-minutes: 25
     if: |
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
       (github.event_name == 'workflow_dispatch' && (github.event.inputs.buildType == 'dev' || github.event.inputs.buildType == 'all'))
@@ -227,6 +235,7 @@ jobs:
 
   build-prod:
     needs: test
+    timeout-minutes: 30
     if: |
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
       (github.event_name == 'workflow_dispatch' && (github.event.inputs.buildType == 'prod-apk' || github.event.inputs.buildType == 'all'))
@@ -306,6 +315,7 @@ jobs:
 
   # Runs after both builds complete, handles publish + version bump
   post-build:
+    timeout-minutes: 15
     needs: [build-dev, build-prod]
     if: |
       always() &&
