@@ -2,13 +2,17 @@
   "expo": {
     "name": "Catalogue Finder",
     "slug": "catalogue-finder-mobile",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "platforms": [
       "android"
     ],
     "android": {
-      "package": "io.github.whaitukay.pnp_catalogue_finder"
+      "package": "io.github.whaitukay.pnp_catalogue_finder",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      },
+      "versionCode": 1
     },
     "plugins": [
       "expo-mail-composer",
@@ -32,6 +36,10 @@
       }
     },
     "owner": "whaitukay",
-    "icon": "./assets/images/app-splash-icon.png"
+    "icon": "./assets/images/app-splash-icon.png",
+    "updates": {
+      "url": "https://u.expo.dev/5f0533d7-d0be-417e-a778-dce081a22151"
+    },
+    "ios": {}
   }
 }
