@@ -543,6 +543,7 @@ export default function App(): React.ReactElement {
                 }}
                 onScanUrlChange={setScanUrl}
                 scanUrl={scanUrl}
+                disabled={Boolean(busyLabel)}
               />
             ) : null}
 

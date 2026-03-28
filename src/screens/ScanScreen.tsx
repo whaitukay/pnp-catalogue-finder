@@ -7,12 +7,14 @@ type ScanScreenProps = {
   scanUrl: string;
   onScanUrlChange: (value: string) => void;
   onScan: () => void;
+  disabled?: boolean;
 };
 
 export function ScanScreen({
   scanUrl,
   onScanUrlChange,
   onScan,
+  disabled = false
 }: ScanScreenProps): React.ReactElement {
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
@@ -33,7 +35,7 @@ export function ScanScreen({
         value={scanUrl}
       />
 
-      <Pressable onPress={onScan} style={sharedStyles.primaryButton}>
+      <Pressable  disabled={disabled} onPress={onScan} style={sharedStyles.primaryButton}>
         <Text style={sharedStyles.primaryButtonText}>Scan this catalogue</Text>
       </Pressable>
     </ScrollView>
