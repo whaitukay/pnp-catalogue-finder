@@ -8,7 +8,7 @@
       "android"
     ],
     "android": {
-      "package": "com.github.whaitukay.pnp-catalogue-finder"
+      "package": "com.github.whaitukay.pnp_catalogue_finder"
     },
     "plugins": [
       "expo-mail-composer",
@@ -16,8 +16,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "1cd3f4c9-7618-4255-84e8-7493b9dc9bac"
+        "projectId": "5f0533d7-d0be-417e-a778-dce081a22151"
       }
-    }
+    },
+    "owner": "whaitukay"
   }
 }
