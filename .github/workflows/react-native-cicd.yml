@@ -23,7 +23,7 @@ on:
       prNumber:
         description: "PR number to comment on (only needed for snapshot)"
         required: false
-        
+
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
   NODE_OPTIONS: --openssl-legacy-provider
@@ -72,6 +72,9 @@ jobs:
     needs: test
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.buildType == 'snapshot'
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
