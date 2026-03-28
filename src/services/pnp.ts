@@ -1105,6 +1105,15 @@ export async function pullCatalogueTarget(
   };
 }
 
+/**
+ * Initiates export for a catalogue identified by `source` and returns the persisted dump and sync result.
+ *
+ * @param source - A catalogue identifier: a full URL, a `/c/<slug>` path, a colon-delimited query, or a plain label/slug; it will be parsed into a CatalogueTarget.
+ * @param storeCode - The store code used when querying search and detail endpoints.
+ * @param forceRefresh - When true, bypasses manifest-based cache skipping and forces re-export.
+ * @param label - Optional override for the catalogue label to use when exporting.
+ * @returns An object containing `dump` (the persisted CatalogueDump) and `result` (the SyncItemResult summarizing the export outcome).
+ */
 export async function scanCatalogue(
   source: string,
   storeCode: string,

@@ -67,6 +67,13 @@ function errorMessage(error: unknown): string {
   return String(error ?? "Unknown error");
 }
 
+/**
+ * Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Dumps, Scan URL, Settings).
+ *
+ * The component maintains UI navigation and data state (settings, discovered targets, cached catalogue dumps, selected dump, sync summary, pagination and search), exposes actions for refreshing/discovering catalogues, pulling/syncing catalogue data, scanning from a URL, opening cached dumps, emailing/sharing CSV exports, and saving settings, and passes derived and control props down to the screen components.
+ *
+ * @returns The app's root React element.
+ */
 export default function App(): React.ReactElement {
   const [activeTab, setActiveTab] = useState<TabKey>("catalogues");
   const [storeCode, setStoreCode] = useState(DEFAULT_SETTINGS.storeCode);
