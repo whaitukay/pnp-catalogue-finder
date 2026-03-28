@@ -18,7 +18,7 @@ export function normalizeStoreCode(value: string): string {
   return value.trim().toUpperCase() || "WC21";
 }
 
-export function parseDateString(value: string | null | undefined): number | null{
+export function parseDateString(value: string | null | undefined): number | null {
   if (!value) {
     return null;
   }
@@ -220,6 +220,11 @@ export function buildDirectoryItems(
     const catalogueId = catalogueIdForTarget(storeCode, target);
     const cached = cachedById.get(catalogueId);
     const provisional = provisionalWindows?.[catalogueId];
+    const catalogueStartDate =
+      target.catalogueStartDate ?? cached?.catalogueStartDate ?? null;
+    const catalogueEndDate =
+      target.catalogueEndDate ?? cached?.catalogueEndDate ?? null;
+    const effectiveEndDate = catalogueEndDate;
     usedIds.add(catalogueId);
 
     merged.push({
@@ -236,11 +241,11 @@ export function buildDirectoryItems(
       itemCount: cached?.itemCount ?? null,
       barcodeCount: cached?.barcodeCount ?? null,
       exportedAt: cached?.exportedAt ?? null,
-      catalogueStartDate: target.catalogueStartDate,
-      catalogueEndDate: target.catalogueEndDate,
+      catalogueStartDate,
+      catalogueEndDate,
       promotionStartDate: cached?.promotionStartDate ?? provisional?.promotionStartDate ?? null,
       promotionEndDate: cached?.promotionEndDate ?? provisional?.promotionEndDate ?? null,
-      expired: cached?.expired ?? isExpiredCatalogue(cached?.promotionEndDate),
+      expired: cached?.expired === true || isExpiredCatalogue(effectiveEndDate),
       csvUri: cached?.csvUri || "",
       dumpUri: cached?.dumpUri || "",
       pullSource: target.sourceUrl || target.query || target.slug || target.label,

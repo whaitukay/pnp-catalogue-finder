@@ -70,7 +70,7 @@ async function readJson<T>(uri: string, fallback: T): Promise<T> {
     }
     const raw = await FileSystem.readAsStringAsync(uri);
     return JSON.parse(raw) as T;
-  } catch (error){
+  } catch (error) {
     if (error instanceof Error) {
       // Safely access properties if it is an Error instance
       console.error("Error during readJson:", error.message);
@@ -363,8 +363,8 @@ function normalizeManifestEntry(entry: unknown): ManifestEntry {
         : 0,
     sourceUrl: normalizeText(raw?.sourceUrl),
     discoveredFrom: normalizeText(raw?.discoveredFrom),
-    catalogueStartDate:normalizeNullableText(raw?.catalogueStartDate),
-    catalogueEndDate:normalizeNullableText(raw?.catalogueEndDate),
+    catalogueStartDate: normalizeNullableText(raw?.catalogueStartDate),
+    catalogueEndDate: normalizeNullableText(raw?.catalogueEndDate),
     promotionStartDate: normalizeNullableText(raw?.promotionStartDate),
     promotionEndDate: normalizeNullableText(raw?.promotionEndDate),
     expired:
@@ -405,7 +405,7 @@ function buildDumpPaths(
   dump: CatalogueDump,
 ): { baseName: string; csvUri: string; dumpUri: string } {
   const baseName = `${safeFileName(dump.storeCode)}-${safeFileName(
-    dump.label || dump.slug || "catalogue-specials",
+    dump.catalogueId || dump.slug || dump.label || "catalogue-specials",
   )}`;
 
   return {

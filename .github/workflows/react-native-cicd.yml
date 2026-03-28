@@ -20,7 +20,10 @@ on:
           - publish-expo
           - snapshot  # ← add this
           - all
-
+      prNumber:
+        description: "PR number to comment on (only needed for snapshot)"
+        required: false
+        
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
   NODE_OPTIONS: --openssl-legacy-provider
@@ -64,7 +67,8 @@ jobs:
       - name: 🧪 Run TypeScript check
         run: npx tsc
 
-    # Manual snapshot build, uploads a dev APK as a downloadable artifact ──  snapshot:
+    # Manual snapshot build, uploads a dev APK as a downloadable artifact
+  snapshot:
     needs: test
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.buildType == 'snapshot'
     runs-on: ubuntu-latest
@@ -159,17 +163,16 @@ jobs:
 
       - name: 💬 Comment Firebase link on PR
         uses: actions/github-script@v7
-        if: github.event.inputs.prNumber != ''
+        if: ${{ github.event.inputs.prNumber != '' }}
         with:
           script: |
-            const shortSha = context.sha.substring(0, 7);
+            const shortSha = '${{ github.sha }}'.substring(0, 7);
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: parseInt('${{ github.event.inputs.prNumber }}'),
               body: `## 📱 Snapshot build ready\n\nA development APK has been uploaded to Firebase App Distribution.\n\nTesters in the **testers** group will receive an email to download and install it.\n\n> Built from commit ${shortSha}`,
             });
-
   build-and-deploy:
     needs: test
     if: |
