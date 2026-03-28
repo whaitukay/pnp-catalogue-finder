@@ -55,5 +55,10 @@ runs:
       shell: bash
       run: |
         mkdir -p ~/.gradle
-        echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" \
-          >> ~/.gradle/gradle.properties
+        cat >> ~/.gradle/gradle.properties << 'EOF'
+        org.gradle.jvmargs=-Xmx14g -XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8
+        org.gradle.parallel=true
+        org.gradle.configureondemand=true
+        org.gradle.daemon=false
+        org.gradle.daemon.idletimeout=60000
+        EOF
