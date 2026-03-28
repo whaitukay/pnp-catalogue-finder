@@ -1,19 +1,21 @@
 import { StyleSheet } from "react-native";
 
 export const BRAND = {
-  red: "#ee3124",
-  redDark: "#bf1f17",
+  amber: "#fff4dc",
+  amberDark: "#8b5d00",
+  background: "#f4f8fc",
   blue: "#004a98",
   blueDark: "#00356d",
   blueSoft: "#edf4ff",
-  slate: "#40536a",
-  ink: "#142131",
   border: "#d6e1f0",
-  background: "#f4f8fc",
-  white: "#ffffff",
-  green: "#e7f6ec",
-  amber: "#fff4dc",
   danger: "#ffe5e2",
+  green: "#e7f6ec",
+  greenDark: "#1d6b39",
+  ink: "#142131",
+  red: "#ee3124",
+  redDark: "#bf1f17",
+  slate: "#40536a",
+  white: "#ffffff",
 };
 
 export const sharedStyles = StyleSheet.create({

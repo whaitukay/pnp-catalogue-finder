@@ -201,8 +201,8 @@ export type ManifestEntry = {
   exportedAt: number;
   sourceUrl: string;
   discoveredFrom: string;
-  catalogueStartDate: string | null | undefined,
-  catalogueEndDate: string | null | undefined,
+  catalogueStartDate: string | null,
+  catalogueEndDate: string | null,
   promotionStartDate: string | null;
   promotionEndDate: string | null;
   expired: boolean;
@@ -224,8 +224,8 @@ export type CatalogueListing = {
   itemCount: number | null;
   barcodeCount: number | null;
   exportedAt: number | null;
-  catalogueStartDate: string | null | undefined
-  catalogueEndDate: string | null | undefined
+  catalogueStartDate: string | null
+  catalogueEndDate: string | null
   promotionStartDate: string | null;
   promotionEndDate: string | null;
   expired: boolean;
@@ -252,8 +252,8 @@ export type AppSettings = {
 export type SyncItemResult = {
   catalogueId: string;
   catalogueSlug: string;
-  catalogueStartDate: string | null | undefined,
-  catalogueEndDate: string | null | undefined,
+  catalogueStartDate: string | null,
+  catalogueEndDate: string | null,
   status: "exported" | "skipped" | "failed";
   itemCount: number;
   barcodesFound: number;

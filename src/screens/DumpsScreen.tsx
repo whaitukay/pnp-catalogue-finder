@@ -174,8 +174,8 @@ function DumpLibraryCard({
   onEmailDump: (catalogueId: string) => void;
 }): React.ReactElement {
   const timingStatus = getCatalogueTimingStatus(
-    item.promotionStartDate,
-    item.promotionEndDate,
+    item.catalogueStartDate,
+    item.catalogueEndDate,
   );
 
   return (

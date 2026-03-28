@@ -169,11 +169,16 @@ jobs:
         if: ${{ github.event.inputs.prNumber != '' }}
         with:
           script: |
+            const prNum = parseInt('${{ github.event.inputs.prNumber }}');
+            if (isNaN(prNum) || prNum <= 0) {
+              console.log('Invalid PR number provided, skipping comment');
+              return;
+            }
             const shortSha = '${{ github.sha }}'.substring(0, 7);
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: parseInt('${{ github.event.inputs.prNumber }}'),
+              issue_number: prNum,
               body: `## 📱 Snapshot build ready\n\nA development APK has been uploaded to Firebase App Distribution.\n\nTesters in the **testers** group will receive an email to download and install it.\n\n> Built from commit ${shortSha}`,
             });
   build-and-deploy:

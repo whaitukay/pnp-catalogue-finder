@@ -68,9 +68,9 @@ const styles = StyleSheet.create({
     color: BRAND.redDark,
   },
   successText: {
-    color: "#1d6b39",
+    color:BRAND.greenDark,
   },
   warningText: {
-    color: "#8b5d00",
+    color: BRAND.amberDark,
   },
 });

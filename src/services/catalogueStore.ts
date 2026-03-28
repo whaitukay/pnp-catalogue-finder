@@ -311,6 +311,7 @@ function normalizeDumpValue(dump: unknown): CatalogueDump {
     typeof raw?.barcodeCount === "number" && Number.isFinite(raw.barcodeCount)
       ? raw.barcodeCount
       : rows.filter((row) => row.barcodeFound).length;
+  const catalogueEndDate = normalizeNullableText(raw?.catalogueEndDate);
 
   return {
     catalogueId: normalizeText(raw?.catalogueId),
@@ -329,10 +330,10 @@ function normalizeDumpValue(dump: unknown): CatalogueDump {
         ? raw.itemCount
         : rows.length,
     barcodeCount,
-    catalogueStartDate: promotionStartDate,
-    catalogueEndDate: promotionEndDate,
+    catalogueStartDate: normalizeNullableText(raw?.catalogueStartDate),
+    catalogueEndDate: catalogueEndDate,
     expired:
-      typeof raw?.expired === "boolean" ? raw.expired : isExpired(promotionEndDate),
+      typeof raw?.expired === "boolean" ? raw.expired : isExpired(catalogueEndDate),
     csvUri: normalizeText(raw?.csvUri),
     rows,
   };
@@ -370,7 +371,7 @@ function normalizeManifestEntry(entry: unknown): ManifestEntry {
     expired:
       typeof raw?.expired === "boolean"
         ? raw.expired
-        : isExpired(normalizeNullableText(raw?.promotionEndDate)),
+        : isExpired(normalizeNullableText(raw?.catalogueEndDate)),
     csvUri: normalizeText(raw?.csvUri),
     dumpUri: normalizeText(raw?.dumpUri),
   };
@@ -395,8 +396,8 @@ function normalizeManifestCache(raw: unknown): ManifestCache {
 
 function sortTimestamp(entry: ManifestEntry): number {
   return (
-    parseDateValue(entry.promotionStartDate) ??
-    parseDateValue(entry.promotionEndDate, true) ??
+    parseDateValue(entry.catalogueStartDate) ??
+    parseDateValue(entry.catalogueEndDate, true) ??
     entry.exportedAt
   );
 }
@@ -588,7 +589,6 @@ export async function saveDump(
 export async function rebuildAllCsvExports(): Promise<number> {
   await ensureStorage();
 
-  const settings = await loadSettings();
   const manifest = await loadManifestCache();
   let rewrittenCount = 0;
 
@@ -619,7 +619,6 @@ export async function rebuildAllCsvExports(): Promise<number> {
       exportedAt: persisted.dump.exportedAt,
     };
 
-    await writeCsvForDump(persisted.dump, persisted.csvUri, settings.exportFields);
     rewrittenCount += 1;
   }
 

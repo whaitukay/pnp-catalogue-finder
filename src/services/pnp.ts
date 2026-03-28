@@ -134,10 +134,16 @@ async function requestJson(
 
       return payload;
     } catch (error) {
-
-      if (error instanceof Error && error.name === 'AbortError') throw error;
-
       lastError = error;
+      // Don't retry on explicit abort (e.g., user cancellation via external signal)
+      // But do retry on timeout-triggered aborts
+      if (
+        error instanceof Error &&
+        error.name === 'AbortError' &&
+        init.signal?.aborted
+      ) {
+        throw error;
+      }
       if (attempt < retries) {
         await sleep(500 * attempt);
       }
