@@ -2,13 +2,13 @@ name: React Native CI/CD
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
     paths-ignore:
       - "**.md"
       - "LICENSE"
       - "docs/**"
   pull_request:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
     inputs:
       buildType:
@@ -30,6 +30,7 @@ permissions:
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
   NODE_OPTIONS: --openssl-legacy-provider
+  EAS_CLI_VERSION: "16.4.0"
 
 jobs:
   check-skip:
@@ -51,28 +52,13 @@ jobs:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🏗 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: 📦 Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: ${{ runner.os }}-node-modules-
-
-      - name: 📦 Install dependencies
-        run: npm ci --prefer-offline
-
+      - uses: ./.github/actions/setup-node
       - name: 🧪 Run TypeScript check
         run: npx tsc
 
   snapshot:
     needs: test
-    timeout-minutes: 25
+    timeout-minutes: 45
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.buildType == 'snapshot'
     runs-on: ubuntu-latest
     permissions:
@@ -83,53 +69,21 @@ jobs:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🏗 Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-build
         with:
-          node-version: "20"
-          cache: "npm"
+          eas-version: ${{ env.EAS_CLI_VERSION }}
+          configure-gradle: 'true'
 
-      - name: 📦 Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: ${{ runner.os }}-node-modules-
-
-      - name: 📦 Cache EAS CLI
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm-global
-          key: eas-cli-${{ runner.os }}-${{ hashFiles('.eas-cli-version') }}
-
-      - name: 📦 Install dependencies
-        run: |
-          npm ci --prefer-offline
-          npm install -g eas-cli@latest
-
-      - name: 🔄 Verify EAS CLI installation
-        run: eas --version
-
-      - name: 📋 Fix package.json main entry
-        run: |
-          jq '.main = "node_modules/expo/AppEntry.js"' package.json > package.json.tmp && mv package.json.tmp package.json
-          echo "Updated package.json main entry"
-
-      - name: 📋 Configure Gradle JVM args
-        run: |
-          mkdir -p ~/.gradle
-          echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" >> ~/.gradle/gradle.properties
-          
       - name: 📱 Build Snapshot APK
         run: |
+          export PATH=~/.npm-global/bin:$PATH
           export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
           eas build --platform android --profile production-apk --local --non-interactive \
             --output=./app-snapshot-pr.apk
         env:
           NODE_ENV: production
 
-      - name: 🚀 Upload to Firebase App Distribution
-        id: firebase_upload
+      - name: 🚀 Upload to Firebase
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
@@ -138,31 +92,26 @@ jobs:
           file: ./app-snapshot-pr.apk
           releaseNotes: "Snapshot build — commit ${{ github.sha }}"
 
-      - name: 💬 Comment Firebase link on PR
+      - name: 💬 Comment on PR
         uses: actions/github-script@v7
         if: ${{ github.event.inputs.prNumber != '' }}
         with:
           script: |
             const prNum = parseInt('${{ github.event.inputs.prNumber }}');
-            if (isNaN(prNum) || prNum <= 0) {
-              console.log('Invalid PR number provided, skipping comment');
-              return;
-            }
+            if (isNaN(prNum) || prNum <= 0) { return; }
             const shortSha = '${{ github.sha }}'.substring(0, 7);
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNum,
-              body: `## 📱 Snapshot build ready\n\nA development APK has been uploaded to Firebase App Distribution.\n\nTesters in the **testers** group will receive an email to download and install it.\n\n> Built from commit ${shortSha}`,
+              body: `## 📱 Snapshot build ready\n\nTesters in the **testers** group will receive an email to download and install it.\n\n> Built from commit ${shortSha}`,
             });
-
-  # --- PARALLEL BUILD JOBS ---
 
   build-dev:
     needs: test
-    timeout-minutes: 25
+    timeout-minutes: 45
     if: |
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && (github.event.inputs.buildType == 'dev' || github.event.inputs.buildType == 'all'))
     runs-on: ubuntu-latest
     permissions:
@@ -171,53 +120,27 @@ jobs:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🏗 Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-build
         with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: 📦 Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: ${{ runner.os }}-node-modules-
-
-      - name: 📦 Cache EAS CLI
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm-global
-          key: eas-cli-${{ runner.os }}
-
-      - name: 📦 Install dependencies
-        run: |
-          npm ci --prefer-offline
-          npm install -g eas-cli@latest
-
-      - name: 🔄 Verify EAS CLI installation
-        run: eas --version
-
-      - name: 📋 Fix package.json main entry
-        run: |
-          jq '.main = "node_modules/expo/AppEntry.js"' package.json > package.json.tmp && mv package.json.tmp package.json
+          eas-version: ${{ env.EAS_CLI_VERSION }}
+          configure-gradle: 'true'
 
       - name: 📋 Read current version
         id: current_version
         run: |
-          VERSION=$(jq -r '.expo.version' app.json)
-          VERSION_CODE=$(jq -r '.expo.android.versionCode' app.json)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "versionCode=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "version=$(jq -r '.expo.version' app.json)" >> $GITHUB_OUTPUT
+          echo "versionCode=$(jq -r '.expo.android.versionCode' app.json)" >> $GITHUB_OUTPUT
 
       - name: 📱 Build Development APK
         run: |
+          export PATH=~/.npm-global/bin:$PATH
           export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
-          eas build --platform android --profile development --local --non-interactive --output=./app-dev.apk
+          eas build --platform android --profile development --local --non-interactive \
+            --output=./app-dev.apk
         env:
           NODE_ENV: development
 
-      - name: 🚀 Upload Dev APK to Firebase App Distribution
+      - name: 🚀 Upload to Firebase
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
@@ -226,14 +149,11 @@ jobs:
           file: ./app-dev.apk
           releaseNotes: |
             v${{ steps.current_version.outputs.version }} (#${{ steps.current_version.outputs.versionCode }})
-
             ${{ github.event.head_commit.message }}
-
             Committed by: ${{ github.event.head_commit.author.name }}
-            Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
+            Branch: ${{ github.ref_name }} — ${{ github.sha }}
 
-      - name: 📦 Upload dev APK artifact
+      - name: 📦 Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-dev
@@ -242,9 +162,9 @@ jobs:
 
   build-prod:
     needs: test
-    timeout-minutes: 30
+    timeout-minutes: 45
     if: |
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && (github.event.inputs.buildType == 'prod-apk' || github.event.inputs.buildType == 'all'))
     runs-on: ubuntu-latest
     permissions:
@@ -253,53 +173,27 @@ jobs:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🏗 Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-build
         with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: 📦 Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: ${{ runner.os }}-node-modules-
-
-      - name: 📦 Cache EAS CLI
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm-global
-          key: eas-cli-${{ runner.os }}
-
-      - name: 📦 Install dependencies
-        run: |
-          npm ci --prefer-offline
-          npm install -g eas-cli@latest
-
-      - name: 🔄 Verify EAS CLI installation
-        run: eas --version
-
-      - name: 📋 Fix package.json main entry
-        run: |
-          jq '.main = "node_modules/expo/AppEntry.js"' package.json > package.json.tmp && mv package.json.tmp package.json
+          eas-version: ${{ env.EAS_CLI_VERSION }}
+          configure-gradle: 'true'
 
       - name: 📋 Read current version
         id: current_version
         run: |
-          VERSION=$(jq -r '.expo.version' app.json)
-          VERSION_CODE=$(jq -r '.expo.android.versionCode' app.json)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "versionCode=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "version=$(jq -r '.expo.version' app.json)" >> $GITHUB_OUTPUT
+          echo "versionCode=$(jq -r '.expo.android.versionCode' app.json)" >> $GITHUB_OUTPUT
 
       - name: 📱 Build Production APK
         run: |
+          export PATH=~/.npm-global/bin:$PATH
           export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
-          eas build --platform android --profile production-apk --local --non-interactive --output=./app-prod.apk
+          eas build --platform android --profile production-apk --local --non-interactive \
+            --output=./app-prod.apk
         env:
           NODE_ENV: production
 
-      - name: 🚀 Upload Production APK to Firebase App Distribution
+      - name: 🚀 Upload to Firebase
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
@@ -308,28 +202,25 @@ jobs:
           file: ./app-prod.apk
           releaseNotes: |
             v${{ steps.current_version.outputs.version }} (#${{ steps.current_version.outputs.versionCode }})
-
             ${{ github.event.head_commit.message }}
-
             Committed by: ${{ github.event.head_commit.author.name }}
-            Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
+            Branch: ${{ github.ref_name }} — ${{ github.sha }}
 
-      - name: 📦 Upload prod APK artifact
+      - name: 📦 Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-prod
           path: ./app-prod.apk
           retention-days: 7
 
-  # Runs after both builds complete, handles publish + version bump
   post-build:
-    timeout-minutes: 15
     needs: [build-dev, build-prod]
+    timeout-minutes: 15
     if: |
       always() &&
       (needs.build-dev.result == 'success' || needs.build-dev.result == 'skipped') &&
       (needs.build-prod.result == 'success' || needs.build-prod.result == 'skipped') &&
+      github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'publish-expo')
     runs-on: ubuntu-latest
     permissions:
@@ -337,33 +228,16 @@ jobs:
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
-
-      - name: 🏗 Setup Node.js
-        uses: actions/setup-node@v4
+      
+      - uses: ./.github/actions/setup-build
         with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: 📦 Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: ${{ runner.os }}-node-modules-
-
-      - name: 📦 Cache EAS CLI
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm-global
-          key: eas-cli-${{ runner.os }}
-
-      - name: 📦 Install dependencies
-        run: |
-          npm ci --prefer-offline
-          npm install -g eas-cli@latest
+          eas-version: ${{ env.EAS_CLI_VERSION }}
+          configure-gradle: 'false'
 
       - name: 🚀 Publish to Expo
-        run: eas update --auto --platform android
+        run: |
+          export PATH=~/.npm-global/bin:$PATH
+          eas update --auto --platform android
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
@@ -377,9 +251,7 @@ jobs:
           jq --arg v "$NEW_VERSION" --argjson vc "$NEW_VERSION_CODE" \
             '.expo.version = $v | .expo.android.versionCode = $vc' \
             app.json > app.json.tmp && mv app.json.tmp app.json
-          echo "New version: $NEW_VERSION ($NEW_VERSION_CODE)"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "versionCode=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
 
       - name: 📋 Commit version bump
         run: |
