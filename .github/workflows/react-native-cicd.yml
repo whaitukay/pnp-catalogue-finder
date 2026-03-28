@@ -364,3 +364,4 @@ jobs:
             ./app-dev.apk
             ./app-prod.apk
           retention-days: 7
+          if-no-files-found: ignore
