@@ -1,28 +1,22 @@
 {
   "cli": {
     "version": ">= 3.8.1",
-    "appVersionSource":"remote"
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "develop"
     },
-    "production": {},
     "production-apk": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "production"
     }
-  },
-  "submit": {
-    "production": {}
   }
 }
