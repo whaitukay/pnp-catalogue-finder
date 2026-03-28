@@ -8,7 +8,7 @@
       "android"
     ],
     "android": {
-      "package": "com.github.whaitukay.pnp_catalogue_finder"
+      "package": "io.github.whaitukay.pnp_catalogue_finder"
     },
     "plugins": [
       "expo-mail-composer",
