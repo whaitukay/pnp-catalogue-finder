@@ -2,6 +2,9 @@
 
 This is the Expo app for phase 2 of the Pick n Pay catalogue workflow.
 
+## Status:
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/whaitukay/pnp-catalogue-finder?utm_source=oss&utm_medium=github&utm_campaign=whaitukay%2Fpnp-catalogue-finder&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 ## Structure
 
 - `App.tsx`: single-screen app shell with four tabs.

@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Catalogue Finder",
+    "slug": "catalogue-finder-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "entryPoint": "src/index.js",
+    "platforms": [
+      "android"
+    ],
+    "android": {
+      "package": "io.github.whaitukay.pnp_catalogue_finder"
+    },
+    "plugins": [
+      "expo-mail-composer",
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#232323",
+          "image": "./assets/images/app-splash-icon.png",
+          "dark": {
+            "image": "./assets/images/app-splash-icon.png",
+            "backgroundColor": "#000000"
+          },
+          "imageWidth": 200
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5f0533d7-d0be-417e-a778-dce081a22151"
+      }
+    },
+    "owner": "whaitukay",
+    "icon": "./assets/images/app-splash-icon.png"
+  }
+}
