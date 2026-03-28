@@ -352,6 +352,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add app.json
           git commit -m "chore: bump version to ${{ steps.bump_version.outputs.version }} [skip ci]"
+          git stash
+          git pull --rebase origin main
+          git stash pop
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
