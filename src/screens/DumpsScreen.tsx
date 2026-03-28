@@ -183,7 +183,6 @@ function DumpLibraryCard({
       <View style={sharedStyles.cardHeaderRow}>
         <View style={sharedStyles.cardHeaderText}>
           <Text style={sharedStyles.cardTitle}>{item.label}</Text>
-          {/* <Text style={sharedStyles.metaText}>{item.slug}</Text> */}
         </View>
         {timingStatus === "active" ? (
           <StatusBadge label="Active" variant="success" />

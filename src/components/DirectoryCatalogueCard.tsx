@@ -49,11 +49,6 @@ export function DirectoryCatalogueCard({
       <Text style={sharedStyles.metaText}>
         {item.catalogueStartDate} to {item.catalogueEndDate}
       </Text>
-
-      <Text style={sharedStyles.metaText}>
-        {formatDateStampRange(item.promotionStartDate, item.promotionEndDate)}
-      </Text>
-
       <View style={sharedStyles.buttonRow}>
         <Pressable onPress={() => onPull(item)} style={sharedStyles.primaryButton}>
           <Text style={sharedStyles.primaryButtonText}>

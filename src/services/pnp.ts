@@ -1109,8 +1109,10 @@ export async function scanCatalogue(
   source: string,
   storeCode: string,
   forceRefresh = false,
+  label?: string,
 ): Promise<{ dump: CatalogueDump; result: SyncItemResult }> {
   const target = parseCatalogueTarget(source);
+  if (label) target.label = label;
   return pullCatalogueTarget(target, storeCode, forceRefresh);
 }
 
