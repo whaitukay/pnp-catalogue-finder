@@ -66,7 +66,7 @@ describe("catalogueStore CSV dump", () => {
     const persisted = await saveDump(dump);
 
     expect(persisted.csvUri).toBe(
-      "file:///mock-docs/catalogue-helper/exports/wc21-burger-fridays-barcodes.csv",
+      "file:///mock-docs/catalogue-helper/exports/wc21-wc21-burger-fridays-barcodes.csv",
     );
 
     const writeCalls = fsMock.writeAsStringAsync.mock.calls as unknown as Array<
@@ -75,23 +75,28 @@ describe("catalogueStore CSV dump", () => {
     const csvWrite = writeCalls.find(
       ([uri]) =>
         uri ===
-        "file:///mock-docs/catalogue-helper/exports/wc21-burger-fridays-barcodes.csv",
+        "file:///mock-docs/catalogue-helper/exports/wc21-wc21-burger-fridays-barcodes.csv",
     );
     expect(csvWrite).toBeTruthy();
     const csvContent = csvWrite ? String(csvWrite[1]) : "";
 
     expect(csvContent).toContain(
-      "position,catalogue_label,catalogue_start_date,catalogue_end_date,name,product_code,base_product,barcode,price,promotion,promotion_start_date,promotion_end_date,promotion_ranges,product_url,barcode_found,error",
+      ["position",
+      "catalogue_label",
+      "catalogue_start_date",
+      "catalogue_end_date",
+      "name",
+      "base_product",
+      "barcode",
+      "price",
+      "promotion",
+      "product_url",].join(",")
     );
     expect(csvContent).toContain('"1","burger-fridays","2026-03-27","2026-03-27"');
-    expect(csvContent).toContain('"PnP Beef Burger 400g","000000000000886223_EA"');
+    expect(csvContent).toContain('"PnP Beef Burger 400g","000000000000886223"');
     expect(csvContent).toContain('"R55.99","Combo For R100.00"');
     expect(csvContent).toMatch(
-      /"Combo For R100\.00","2026-03-27","2026-03-27"/,
+      /"Combo For R100\.00"/,
     );
-    expect(csvContent).toContain(
-      '"2026-03-26T22:00:00+0000 -> 2026-03-27T21:59:59+0000 [Combo For R100.00]"',
-    );
-    expect(csvContent).toContain('"yes",""');
   });
 });

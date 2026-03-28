@@ -18,7 +18,7 @@ export function normalizeStoreCode(value: string): string {
   return value.trim().toUpperCase() || "WC21";
 }
 
-export function parseDateString(value: string | null | undefined): number | null {
+export function parseDateString(value: string | null): number | null {
   if (!value) {
     return null;
   }
@@ -37,7 +37,7 @@ export function parseDateString(value: string | null | undefined): number | null
 }
 
 export function parseDateValue(
-  value: string | null | undefined,
+  value: string | null,
   endOfDay = false,
 ): number | null {
   if (!value) {
@@ -60,14 +60,14 @@ export function parseDateValue(
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-export function isExpiredCatalogue(endDate: string | null | undefined): boolean {
+export function isExpiredCatalogue(endDate: string | null): boolean {
   const parsed = parseDateValue(endDate, true);
   return parsed != null && parsed < Date.now();
 }
 
 export function getCatalogueTimingStatus(
-  startDate: string | null | undefined,
-  endDate: string | null | undefined,
+  startDate: string | null,
+  endDate: string | null,
 ): CatalogueTimingStatus {
   const now = Date.now();
   const startMillis = parseDateValue(startDate);
@@ -88,14 +88,14 @@ export function getCatalogueTimingStatus(
   return "unknown";
 }
 
-export function formatTimestamp(value: number | null | undefined): string {
+export function formatTimestamp(value: number | null): string {
   if (!value || Number.isNaN(value)) {
     return "Unknown";
   }
   return new Date(value).toLocaleString();
 }
 
-export function formatPromotionDate(value: string | null | undefined): string {
+export function formatPromotionDate(value: string | null): string {
   if (!value) {
     return "Unknown";
   }
@@ -109,7 +109,7 @@ export function formatPromotionDate(value: string | null | undefined): string {
   return Number.isNaN(parsed) ? value : new Date(parsed).toLocaleString();
 }
 
-export function formatDateStamp(value: string | null | undefined): string {
+export function formatDateStamp(value: string | null): string {
   if (!value) {
     return "-";
   }
@@ -124,8 +124,8 @@ export function formatDateStamp(value: string | null | undefined): string {
 }
 
 export function formatDateStampRange(
-  startDate: string | null | undefined,
-  endDate: string | null | undefined,
+  startDate: string | null,
+  endDate: string | null,
 ): string {
   const start = formatDateStamp(startDate);
   const end = formatDateStamp(endDate);
@@ -143,8 +143,8 @@ export function formatDateStampRange(
 }
 
 export function formatDateRange(
-  startDate: string | null | undefined,
-  endDate: string | null | undefined,
+  startDate: string | null,
+  endDate: string | null,
 ): string {
   if (startDate && endDate) {
     return `${formatPromotionDate(startDate)} to ${formatPromotionDate(endDate)}`;

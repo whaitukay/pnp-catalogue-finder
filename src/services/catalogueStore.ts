@@ -99,7 +99,7 @@ function normalizeNullableText(value: unknown): string | null {
   return text || null;
 }
 
-function parseDateValue(value: string | null | undefined, endOfDay = false): number | null {
+function parseDateValue(value: string | null, endOfDay = false): number | null {
   if (!value) {
     return null;
   }
@@ -120,7 +120,7 @@ function parseDateValue(value: string | null | undefined, endOfDay = false): num
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-function minDate(values: Array<string | null | undefined>): string | null {
+function minDate(values: Array<string | null>): string | null {
   const dated = values
     .map((value) => ({
       value: value ?? null,
@@ -134,7 +134,7 @@ function minDate(values: Array<string | null | undefined>): string | null {
   return dated[0]?.value ?? null;
 }
 
-function maxDate(values: Array<string | null | undefined>): string | null {
+function maxDate(values: Array<string | null>): string | null {
   const dated = values
     .map((value) => ({
       value: value ?? null,
@@ -148,12 +148,12 @@ function maxDate(values: Array<string | null | undefined>): string | null {
   return dated[0]?.value ?? null;
 }
 
-function isExpired(endDate: string | null | undefined): boolean {
+function isExpired(endDate: string | null): boolean {
   const millis = parseDateValue(endDate ?? null, true);
   return millis != null && millis < Date.now();
 }
 
-function formatDateForCsv(value: string | null | undefined): string {
+function formatDateForCsv(value: string | null): string {
   return normalizeText(value);
 }
 
@@ -186,7 +186,7 @@ function normalizeIsoForSaParsing(value: string): string {
 const CSV_CALENDAR_TIME_ZONE = "Africa/Johannesburg";
 
 /** ISO timestamps → `YYYY-MM-DD` in South Africa local calendar for spreadsheet-friendly CSV cells. */
-function formatDateOnlyForCsv(value: string | null | undefined): string {
+function formatDateOnlyForCsv(value: string | null): string {
   const trimmed = normalizeText(value);
   if (!trimmed) {
     return "";

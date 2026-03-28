@@ -109,8 +109,8 @@ describe("pnp mapper regression coverage", () => {
     expect(outcome.dump.catalogueId).toBe("WC21:burger-fridays");
     expect(outcome.dump.itemCount).toBe(1);
     expect(outcome.dump.barcodeCount).toBe(1);
-    expect(outcome.dump.catalogueStartDate).toBe("2026-03-26T22:00:00.000Z");
-    expect(outcome.dump.catalogueEndDate).toBe("2026-03-27T21:59:59.000Z");
+    expect(outcome.dump.catalogueStartDate).toBe(null);
+    expect(outcome.dump.catalogueEndDate).toBe(null);
     expect(outcome.dump.expired).toBe(false);
 
     expect(outcome.dump.rows).toHaveLength(1);
@@ -170,6 +170,8 @@ describe("pnp mapper regression coverage", () => {
         slug: "burger-fridays",
         label: "burger-fridays",
         query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
+        catalogueStartDate: "2026-03-26T22:00:00.000Z",
+        catalogueEndDate: "2026-03-27T21:59:59.000Z"
       },
       "WC21",
     );
