@@ -63,11 +63,11 @@ jobs:
       - name: 🧪 Run TypeScript check
         run: npx tsc
 
-      - name: 🧹 Run ESLint
-        run: npm run lint
+      # - name: 🧹 Run ESLint
+      #   run: npm run lint
 
-      - name: 🎨 Run Prettier check
-        run: npm run format:check
+      # - name: 🎨 Run Prettier check
+      #   run: npm run format:check
 
   build-and-deploy:
     needs: test

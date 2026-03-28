@@ -355,6 +355,8 @@ function normalizeManifestEntry(entry: unknown): ManifestEntry {
         : 0,
     sourceUrl: normalizeText(raw?.sourceUrl),
     discoveredFrom: normalizeText(raw?.discoveredFrom),
+    catalogueStartDate:normalizeNullableText(raw?.catalogueStartDate),
+    catalogueEndDate:normalizeNullableText(raw?.catalogueEndDate),
     promotionStartDate: normalizeNullableText(raw?.promotionStartDate),
     promotionEndDate: normalizeNullableText(raw?.promotionEndDate),
     expired:
