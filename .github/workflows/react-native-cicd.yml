@@ -35,6 +35,8 @@ jobs:
   check-skip:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    permissions:
+      contents: read
     steps:
       - name: Skip CI check
         run: echo "Proceeding with workflow"
@@ -43,6 +45,8 @@ jobs:
     needs: check-skip
     timeout-minutes: 10
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
@@ -72,6 +76,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.buildType == 'snapshot'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       issues: write
       pull-requests: write
     steps:
@@ -160,6 +165,8 @@ jobs:
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
       (github.event_name == 'workflow_dispatch' && (github.event.inputs.buildType == 'dev' || github.event.inputs.buildType == 'all'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
@@ -240,6 +247,8 @@ jobs:
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
       (github.event_name == 'workflow_dispatch' && (github.event.inputs.buildType == 'prod-apk' || github.event.inputs.buildType == 'all'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
