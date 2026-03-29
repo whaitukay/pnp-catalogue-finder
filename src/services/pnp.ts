@@ -306,13 +306,17 @@ function decodeHtml(value: string): string {
   return he.decode(value);
 }
 
+function parseCmsContent(content: string) {
+    return parse(decodeHtml(content));
+  }
+
 function extractLinksFromHtml(content: string): string[] {
-  const root = parse(he.decode(content));
+  const root = parseCmsContent(content);
   return root.querySelectorAll("a[href]").map((el) => el.getAttribute("href")!);
 }
 
 function extractTitle(content: string): string | null {
-  const root = parse(he.decode(content));
+  const root = parseCmsContent(content);
   return root.querySelector("h2")?.textContent?.trim() ?? null;
 }
 /**
@@ -321,7 +325,7 @@ function extractTitle(content: string): string | null {
  * A range like Valid 28 December - 3 January 2026 is therefore recorded as starting in December 2026 instead of December 2025.
  */
 function extractValidityDates(content: string): { validityStartDate: string | null; validityEndDate: string | null } {
-  const root = parse(he.decode(content));
+  const root = parseCmsContent(content);
 
   const el = root.querySelector("p.cat-validity-date");
   const text = el?.innerText?.trim() ?? "";
