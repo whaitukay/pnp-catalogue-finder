@@ -94,6 +94,8 @@ export default function App(): React.ReactElement {
   const [statusMessage, setStatusMessage] = useState("");
   const [errorText, setErrorText] = useState("");
   const [busyLabel, setBusyLabel] = useState("");
+  const [downloadingCatalogueId, setDownloadingCatalogueId] = useState<string | null>(null);
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
   const [cataloguePage, setCataloguePage] = useState(0);
   const [dumpRowsPage, setDumpRowsPage] = useState(0);
   const [dumpSearch, setDumpSearch] = useState("");
@@ -247,12 +249,20 @@ export default function App(): React.ReactElement {
     setBusyLabel(
       forceRefresh ? "Refreshing all visible site catalogues..." : "Pulling missing site catalogues...",
     );
+    setDownloadingCatalogueId(null);
+    setIsBulkDownloading(true);
     setErrorText("");
     setStatusMessage("");
 
     try {
       const nextSettings = await persistSettings();
-      const summary = await syncAllMissingCatalogues(nextSettings.storeCode, forceRefresh);
+      const summary = await syncAllMissingCatalogues(
+        nextSettings.storeCode,
+        forceRefresh,
+        (current, total) => {
+          setBusyLabel(`Downloading ${current}/${total} catalogues...`);
+        },
+      );
       setSyncSummary(summary);
       await refreshCatalogueData({
         nextStoreCode: nextSettings.storeCode,
@@ -265,12 +275,13 @@ export default function App(): React.ReactElement {
     } catch (error) {
       setErrorText(errorMessage(error));
     } finally {
+      setIsBulkDownloading(false);
       setBusyLabel("");
     }
   }
 
   async function pullSingleCatalogue(item: DirectoryItem): Promise<void> {
-
+    setDownloadingCatalogueId(item.catalogueId);
     setBusyLabel(`Pulling ${item.label}...`);
     setErrorText("");
     setStatusMessage("");
@@ -289,6 +300,7 @@ export default function App(): React.ReactElement {
     } catch (error) {
       setErrorText(errorMessage(error));
     } finally {
+      setDownloadingCatalogueId(null);
       setBusyLabel("");
     }
   }
@@ -472,7 +484,9 @@ export default function App(): React.ReactElement {
                   cachedCount={visibleCachedCatalogues.length}
                   cataloguePage={cataloguePage}
                   directoryItems={directoryItems}
+                  downloadingCatalogueId={downloadingCatalogueId}
                   hideExpiredCatalogues={hideExpiredCatalogues}
+                  isBulkDownloading={isBulkDownloading}
                   onCataloguePageChange={setCataloguePage}
                   onForceRefresh={() => {
                     void runPull(true);

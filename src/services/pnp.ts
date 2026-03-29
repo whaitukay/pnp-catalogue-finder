@@ -1204,11 +1204,14 @@ export async function scanCatalogue(
 export async function syncAllMissingCatalogues(
   storeCode: string,
   forceRefresh = false,
+  onProgress?: (current: number, total: number) => void,
 ): Promise<SyncSummary> {
   const targets = await discoverCatalogueTargets();
   const results: SyncItemResult[] = [];
 
-  for (const target of targets) {
+  const totalCount = targets.length;
+  for (const [index, target] of targets.entries()) {
+    onProgress?.(index + 1, totalCount);
     try {
       const outcome = await exportTarget(target, storeCode, forceRefresh, false);
       results.push(outcome.result);

@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { DirectoryCatalogueCard } from "../components/DirectoryCatalogueCard";
 import { PaginationControls } from "../components/PaginationControls";
@@ -9,6 +9,8 @@ import type { DirectoryItem } from "../utils/catalogueUi";
 import { formatDateRange } from "../utils/catalogueUi";
 
 type CataloguesScreenProps = {
+  downloadingCatalogueId: string | null;
+  isBulkDownloading: boolean;
   hideExpiredCatalogues: boolean;
   siteCount: number;
   cachedCount: number;
@@ -25,6 +27,8 @@ type CataloguesScreenProps = {
 };
 
 export function CataloguesScreen({
+  downloadingCatalogueId,
+  isBulkDownloading,
   hideExpiredCatalogues,
   siteCount,
   cachedCount,
@@ -39,6 +43,8 @@ export function CataloguesScreen({
   onOpenDump,
   onCataloguePageChange,
 }: CataloguesScreenProps): React.ReactElement {
+  const downloadsDisabled = Boolean(downloadingCatalogueId) || isBulkDownloading;
+
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
       <View style={styles.heroCard}>
@@ -51,8 +57,16 @@ export function CataloguesScreen({
           <Pressable onPress={onRefreshList} style={styles.heroSecondaryButton}>
             <Text style={styles.heroSecondaryButtonText}>Refresh list</Text>
           </Pressable>
-          <Pressable onPress={onPullAll} style={styles.heroPrimaryButton}>
-            <Text style={styles.heroPrimaryButtonText}>Download all</Text>
+          <Pressable
+            disabled={downloadsDisabled}
+            onPress={onPullAll}
+            style={[styles.heroPrimaryButton, downloadsDisabled && styles.heroPrimaryButtonDisabled]}
+          >
+            {isBulkDownloading ? (
+              <ActivityIndicator color={BRAND.white} />
+            ) : (
+              <Text style={styles.heroPrimaryButtonText}>Download all</Text>
+            )}
           </Pressable>
         </View>
       </View>
@@ -76,6 +90,8 @@ export function CataloguesScreen({
         pagedDirectoryItems.map((item) => (
           <DirectoryCatalogueCard
             key={item.catalogueId}
+            pullDisabled={downloadsDisabled}
+            isDownloading={item.catalogueId === downloadingCatalogueId}
             item={item}
             onOpenDump={onOpenDump}
             onPull={onPullItem}
@@ -145,6 +161,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  heroPrimaryButtonDisabled: {
+    opacity: 0.65,
   },
   heroPrimaryButtonText: {
     color: BRAND.white,

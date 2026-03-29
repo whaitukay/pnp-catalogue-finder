@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Image,
   Linking,
@@ -23,6 +24,8 @@ import { StatusBadge } from "./StatusBadge";
 
 type DirectoryCatalogueCardProps = {
   item: DirectoryItem;
+  isDownloading: boolean;
+  pullDisabled: boolean;
   onPull: (item: DirectoryItem) => void;
   onOpenDump: (catalogueId: string) => void;
 };
@@ -34,12 +37,16 @@ type DirectoryCatalogueCardProps = {
 * the primary action triggers a pull for the item, an optional "View" button invokes a dump-open callback when the item is cached, and an optional link opens the catalogue's source URL.
  *
  * @param item - The catalogue item to display, including label, date ranges, sourceUrl, cache/site flags, and catalogueId.
+* @param isDownloading - When true, shows a spinner in the download button.
+* @param pullDisabled - When true, disables the download button.
  * @param onPull - Callback invoked with the `item` when the primary action (download/refresh) is pressed.
 * @param onOpenDump - Callback invoked with the item's `catalogueId` when "View" is pressed (rendered only when the item is cached).
  * @returns A React element representing the catalogue card.
  */
 export function DirectoryCatalogueCard({
   item,
+  isDownloading,
+  pullDisabled,
   onPull,
   onOpenDump,
 }: DirectoryCatalogueCardProps): React.ReactElement {
@@ -151,10 +158,22 @@ export function DirectoryCatalogueCard({
         {formatDateStampRange(item.catalogueStartDate, item.catalogueEndDate)}
       </Text>
       <View style={sharedStyles.buttonRow}>
-        <Pressable onPress={() => onPull(item)} style={sharedStyles.primaryButton}>
-          <Text style={sharedStyles.primaryButtonText}>
-            {item.fromCache ? "Refresh" : "Download"}
-          </Text>
+        <Pressable
+          disabled={pullDisabled}
+          onPress={() => onPull(item)}
+          style={[
+            sharedStyles.primaryButton,
+            styles.pullButton,
+            pullDisabled && styles.pullButtonDisabled,
+          ]}
+        >
+          {isDownloading ? (
+            <ActivityIndicator color={BRAND.white} />
+          ) : (
+            <Text style={sharedStyles.primaryButtonText}>
+              {item.fromCache ? "Refresh" : "Download"}
+            </Text>
+          )}
         </Pressable>
         {item.fromCache ? (
           <Pressable
@@ -451,5 +470,12 @@ const styles = StyleSheet.create({
   linkButtonText: {
     color: "#004a98",
     fontWeight: "700",
+  },
+  pullButton: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pullButtonDisabled: {
+    opacity: 0.65,
   },
 });
