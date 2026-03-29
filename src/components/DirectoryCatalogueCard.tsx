@@ -183,12 +183,30 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function distance(
-  a: { pageX: number; pageY: number },
-  b: { pageX: number; pageY: number },
-): number {
-  const dx = a.pageX - b.pageX;
-  const dy = a.pageY - b.pageY;
+type TouchPoint = {
+  pageX?: number;
+  pageY?: number;
+  locationX?: number;
+  locationY?: number;
+};
+
+function touchDistance(a: TouchPoint, b: TouchPoint): number | null {
+  const ax = typeof a.pageX === "number" ? a.pageX : a.locationX;
+  const ay = typeof a.pageY === "number" ? a.pageY : a.locationY;
+  const bx = typeof b.pageX === "number" ? b.pageX : b.locationX;
+  const by = typeof b.pageY === "number" ? b.pageY : b.locationY;
+
+  if (
+    typeof ax !== "number" ||
+    typeof ay !== "number" ||
+    typeof bx !== "number" ||
+    typeof by !== "number"
+  ) {
+    return null;
+  }
+
+  const dx = ax - bx;
+  const dy = ay - by;
   return Math.sqrt(dx * dx + dy * dy);
 }
 
@@ -224,7 +242,10 @@ function ZoomableImage({
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: () => {
           pinchStartDistance.current = null;
           pinchStartScale.current = currentScale.current;
@@ -232,11 +253,17 @@ function ZoomableImage({
           didPanAfterPinch.current = false;
         },
         onPanResponderMove: (evt, gestureState) => {
-          const touches = evt.nativeEvent.touches;
+          const touches =
+            evt.nativeEvent.touches.length >= 2
+              ? evt.nativeEvent.touches
+              : evt.nativeEvent.changedTouches;
 
           if (touches.length >= 2) {
             gestureWasPinch.current = true;
-            const nextDistance = distance(touches[0], touches[1]);
+            const nextDistance = touchDistance(touches[0], touches[1]);
+            if (nextDistance == null || nextDistance <= 0) {
+              return;
+            }
             if (pinchStartDistance.current == null) {
               pinchStartDistance.current = nextDistance;
               pinchStartScale.current = currentScale.current;
