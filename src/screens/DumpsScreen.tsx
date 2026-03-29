@@ -1,16 +1,22 @@
 import React from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  PixelRatio,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+
+import * as bwipjs from "@bwip-js/react-native";
 
 import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge } from "../components/StatusBadge";
 import { sharedStyles } from "../theme";
 import type { CatalogueDump, ManifestEntry, ProductRow } from "../types";
-import {
-  formatDateRange,
-  formatTimestamp,
-  formatDateStampRange,
-  getCatalogueTimingStatus,
-} from "../utils/catalogueUi";
+import { formatTimestamp, formatDateStampRange, getCatalogueTimingStatus } from "../utils/catalogueUi";
 
 type DumpsScreenProps = {
   selectedDump: CatalogueDump | null;
@@ -229,24 +235,233 @@ function DumpLibraryCard({
 }
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
+  const rawBarcode = typeof row.barcode === "string" ? row.barcode : "";
+  const barcodeDigits = rawBarcode.replace(/\D/g, "");
+  const hasBarcodeDigits = barcodeDigits.length > 0;
+  const normalizedBarcode = React.useMemo(() => normalizeEan(barcodeDigits), [barcodeDigits]);
+  const [barcodeError, setBarcodeError] = React.useState(false);
+  const barcodeToShow = barcodeError ? null : normalizedBarcode;
+  const handleBarcodeError = React.useCallback(() => {
+    setBarcodeError(true);
+  }, []);
+
+  React.useEffect(() => {
+    setBarcodeError(false);
+  }, [normalizedBarcode?.format, normalizedBarcode?.value]);
+
   return (
     <View style={sharedStyles.card}>
-      <Text style={sharedStyles.cardTitle}>{row.name || row.productCode}</Text>
-      <Text style={sharedStyles.metaText}>Barcode: {row.barcode || "Missing"}</Text>
-      {row.baseProduct ? (
-        <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
-      ) : null}
-      {row.price ? <Text style={sharedStyles.metaText}>Price: {row.price}</Text> : null}
-      {/* {(row.promotionStartDate || row.promotionEndDate) ? (
-        <Text style={sharedStyles.metaText}>
-          {formatDateRange(row.promotionStartDate, row.promotionEndDate)}
-        </Text>
-      ) : null} */}
-      {row.promotion ? <Text style={sharedStyles.bodyText}>{row.promotion}</Text> : null}
-      {/* {row.promotionRanges ? (
-        <Text style={sharedStyles.metaText}>{row.promotionRanges}</Text>
-      ) : null} */}
-      {row.error ? <Text style={sharedStyles.errorSmall}>{row.error}</Text> : null}
+      <Text numberOfLines={2} style={sharedStyles.cardTitle}>
+        {row.name || row.productCode}
+      </Text>
+      <View style={styles.dumpRowCardRow}>
+        <View style={styles.dumpRowCardDetails}>
+          {row.baseProduct ? (
+            <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
+          ) : null}
+          {hasBarcodeDigits && (!normalizedBarcode || barcodeError) ? (
+            <Text style={sharedStyles.metaText}>Barcode not scannable</Text>
+          ) : null}
+          {!hasBarcodeDigits ? <Text style={sharedStyles.metaText}>Barcode missing</Text> : null}
+          {row.error ? <Text style={sharedStyles.errorSmall}>{row.error}</Text> : null}
+        </View>
+        {barcodeToShow ? (
+          <View style={styles.dumpRowCardBarcode}>
+            <EanBarcode
+              format={barcodeToShow.format}
+              onError={handleBarcodeError}
+              value={barcodeToShow.value}
+            />
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
+
+function EanBarcode({
+  format,
+  value,
+  onError,
+}: {
+  format: "EAN13" | "EAN8";
+  value: string;
+  onError: () => void;
+}): React.ReactElement | null {
+  const [source, setSource] = React.useState<bwipjs.DataURL | null>(null);
+
+  React.useEffect(() => {
+    const scale = Math.max(1, Math.round(PixelRatio.get()));
+    const cacheKey = `${format}:${value}:${scale}`;
+    const cachedSource = getBarcodeImageFromCache(cacheKey);
+    if (cachedSource) {
+      setSource(cachedSource);
+      return;
+    }
+
+    let cancelled = false;
+    setSource(null);
+
+    bwipjs
+      .toDataURL({
+        bcid: format === "EAN13" ? "ean13" : "ean8",
+        text: value,
+        scale,
+        height: 12,
+        includetext: true,
+      })
+      .then((nextSource: bwipjs.DataURL) => {
+        putBarcodeImageInCache(cacheKey, nextSource);
+
+        if (!cancelled) {
+          setSource(nextSource);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          console.warn("Failed to generate barcode image", {
+            format,
+            valueLength: value.length,
+            error,
+          });
+          onError();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [format, value, onError]);
+
+  if (!source) {
+    return null;
+  }
+
+  return (
+    <Image
+      resizeMode="contain"
+      source={{ uri: source.uri }}
+      style={{
+        width: "100%",
+        height: 72,
+      }}
+    />
+  );
+}
+
+function normalizeEan(
+  value: string,
+): { format: "EAN13" | "EAN8"; value: string } | null {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 13) {
+    const body = digits.slice(0, 12);
+    const checkDigit = digits[12];
+    if (checkDigit !== ean13CheckDigit(body)) {
+      return null;
+    }
+
+    return { format: "EAN13", value: digits };
+  }
+
+  if (digits.length === 12) {
+    // Prefer interpreting 12 digits as a full UPC-A (including check digit) and normalizing to EAN-13.
+    // Otherwise, treat the 12 digits as an EAN-13 body missing its check digit.
+    const upcBody = digits.slice(0, 11);
+    const upcCheckDigit = digits[11];
+    if (upcCheckDigit === upcACheckDigit(upcBody)) {
+      return { format: "EAN13", value: `0${digits}` };
+    }
+
+    return { format: "EAN13", value: `${digits}${ean13CheckDigit(digits)}` };
+  }
+
+  if (digits.length === 8) {
+    const body = digits.slice(0, 7);
+    const checkDigit = digits[7];
+    if (checkDigit !== ean8CheckDigit(body)) {
+      return null;
+    }
+
+    return { format: "EAN8", value: digits };
+  }
+
+  if (digits.length === 7) {
+    return { format: "EAN8", value: `${digits}${ean8CheckDigit(digits)}` };
+  }
+
+  return null;
+}
+
+function ean13CheckDigit(twelveDigits: string): string {
+  let sum = 0;
+  for (let index = 0; index < 12; index += 1) {
+    const digit = Number(twelveDigits[index]);
+    sum += digit * (index % 2 === 0 ? 1 : 3);
+  }
+
+  return String((10 - (sum % 10)) % 10);
+}
+
+function upcACheckDigit(elevenDigits: string): string {
+  let sum = 0;
+  for (let index = 0; index < 11; index += 1) {
+    const digit = Number(elevenDigits[index]);
+    sum += digit * (index % 2 === 0 ? 3 : 1);
+  }
+
+  return String((10 - (sum % 10)) % 10);
+}
+
+function ean8CheckDigit(sevenDigits: string): string {
+  let sum = 0;
+  for (let index = 0; index < 7; index += 1) {
+    const digit = Number(sevenDigits[index]);
+    sum += digit * (index % 2 === 0 ? 3 : 1);
+  }
+
+  return String((10 - (sum % 10)) % 10);
+}
+
+// Keep this small: `bwipjs.toDataURL()` returns a base64 `data:` URI, which can be memory-heavy.
+const BARCODE_IMAGE_CACHE_LIMIT = 100;
+const barcodeImageCache = new Map<string, bwipjs.DataURL>();
+
+function getBarcodeImageFromCache(key: string): bwipjs.DataURL | null {
+  const cached = barcodeImageCache.get(key);
+  if (!cached) {
+    return null;
+  }
+
+  barcodeImageCache.delete(key);
+  barcodeImageCache.set(key, cached);
+  return cached;
+}
+
+function putBarcodeImageInCache(key: string, value: bwipjs.DataURL): void {
+  barcodeImageCache.set(key, value);
+  if (barcodeImageCache.size > BARCODE_IMAGE_CACHE_LIMIT) {
+    const keyToEvict = barcodeImageCache.keys().next().value;
+    if (typeof keyToEvict === "string") {
+      barcodeImageCache.delete(keyToEvict);
+    }
+  }
+}
+
+const styles = StyleSheet.create({
+  dumpRowCardRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  dumpRowCardDetails: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
+  dumpRowCardBarcode: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 72,
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
+  },
+});
