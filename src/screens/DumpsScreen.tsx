@@ -305,8 +305,13 @@ function EanBarcode({
           setSource(nextSource);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
+          console.warn("Failed to generate barcode image", {
+            format,
+            valueLength: value.length,
+            error,
+          });
           onError();
         }
       });
