@@ -76,10 +76,11 @@ function errorMessage(error: unknown): string {
  */
 export default function App(): React.ReactElement {
   const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === "dark";
   const safeAreaBackground =
-    colorScheme === "dark" ? BRAND.backgroundDark : BRAND.background;
+    isDarkMode ? BRAND.backgroundDark : BRAND.background;
   const safeAreaInsetStyle =
-    colorScheme === "dark" ? styles.safeAreaDark : styles.safeAreaLight;
+    isDarkMode ? styles.safeAreaDark : styles.safeAreaLight;
 
   const [activeTab, setActiveTab] = useState<TabKey>("catalogues");
   const [storeCode, setStoreCode] = useState(DEFAULT_SETTINGS.storeCode);
@@ -453,7 +454,7 @@ export default function App(): React.ReactElement {
       >
         <StatusBar
           backgroundColor={safeAreaBackground}
-          style={colorScheme === "dark" ? "light" : "dark"}
+          style={isDarkMode ? "light" : "dark"}
         />
         <View style={styles.appShell}>
           <View style={styles.headerBlock}>
