@@ -293,10 +293,8 @@ function EanBarcode({
   React.useEffect(() => {
     const scale = Math.max(1, Math.round(PixelRatio.get()));
     const cacheKey = `${format}:${value}:${scale}`;
-    const cachedSource = barcodeImageCache.get(cacheKey);
+    const cachedSource = getBarcodeImageFromCache(cacheKey);
     if (cachedSource) {
-      barcodeImageCache.delete(cacheKey);
-      barcodeImageCache.set(cacheKey, cachedSource);
       setSource(cachedSource);
       return;
     }
@@ -313,13 +311,7 @@ function EanBarcode({
         includetext: true,
       })
       .then((nextSource: bwipjs.DataURL) => {
-        barcodeImageCache.set(cacheKey, nextSource);
-        if (barcodeImageCache.size > BARCODE_IMAGE_CACHE_LIMIT) {
-          const keyToEvict = barcodeImageCache.keys().next().value;
-          if (typeof keyToEvict === "string") {
-            barcodeImageCache.delete(keyToEvict);
-          }
-        }
+        putBarcodeImageInCache(cacheKey, nextSource);
 
         if (!cancelled) {
           setSource(nextSource);
@@ -430,8 +422,30 @@ function ean8CheckDigit(sevenDigits: string): string {
   return String((10 - (sum % 10)) % 10);
 }
 
-const BARCODE_IMAGE_CACHE_LIMIT = 200;
+// Keep this small: `bwipjs.toDataURL()` returns a base64 `data:` URI, which can be memory-heavy.
+const BARCODE_IMAGE_CACHE_LIMIT = 100;
 const barcodeImageCache = new Map<string, bwipjs.DataURL>();
+
+function getBarcodeImageFromCache(key: string): bwipjs.DataURL | null {
+  const cached = barcodeImageCache.get(key);
+  if (!cached) {
+    return null;
+  }
+
+  barcodeImageCache.delete(key);
+  barcodeImageCache.set(key, cached);
+  return cached;
+}
+
+function putBarcodeImageInCache(key: string, value: bwipjs.DataURL): void {
+  barcodeImageCache.set(key, value);
+  if (barcodeImageCache.size > BARCODE_IMAGE_CACHE_LIMIT) {
+    const keyToEvict = barcodeImageCache.keys().next().value;
+    if (typeof keyToEvict === "string") {
+      barcodeImageCache.delete(keyToEvict);
+    }
+  }
+}
 
 const styles = StyleSheet.create({
   dumpRowCardRow: {
