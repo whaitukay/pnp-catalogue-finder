@@ -313,14 +313,15 @@ function EanBarcode({
         includetext: true,
       })
       .then((nextSource: bwipjs.DataURL) => {
-        if (!cancelled) {
-          barcodeImageCache.set(cacheKey, nextSource);
-          if (barcodeImageCache.size > BARCODE_IMAGE_CACHE_LIMIT) {
-            const keyToEvict = barcodeImageCache.keys().next().value;
-            if (typeof keyToEvict === "string") {
-              barcodeImageCache.delete(keyToEvict);
-            }
+        barcodeImageCache.set(cacheKey, nextSource);
+        if (barcodeImageCache.size > BARCODE_IMAGE_CACHE_LIMIT) {
+          const keyToEvict = barcodeImageCache.keys().next().value;
+          if (typeof keyToEvict === "string") {
+            barcodeImageCache.delete(keyToEvict);
           }
+        }
+
+        if (!cancelled) {
           setSource(nextSource);
         }
       })
