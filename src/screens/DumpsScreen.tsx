@@ -295,6 +295,8 @@ function EanBarcode({
     const cacheKey = `${format}:${value}:${scale}`;
     const cachedSource = barcodeImageCache.get(cacheKey);
     if (cachedSource) {
+      barcodeImageCache.delete(cacheKey);
+      barcodeImageCache.set(cacheKey, cachedSource);
       setSource(cachedSource);
       return;
     }
@@ -369,6 +371,8 @@ function normalizeEan(
   }
 
   if (digits.length === 12) {
+    // Prefer interpreting 12 digits as a full UPC-A (including check digit) and normalizing to EAN-13.
+    // Otherwise, treat the 12 digits as an EAN-13 body missing its check digit.
     const upcBody = digits.slice(0, 11);
     const upcCheckDigit = digits[11];
     if (upcCheckDigit === upcACheckDigit(upcBody)) {
