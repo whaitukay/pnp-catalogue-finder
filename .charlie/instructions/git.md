@@ -12,7 +12,7 @@ All git and GitHub actions.
 
 ## Rules
 - [R1] Never push directly to the default branch (`dev`). Create a branch and open a PR.
-- [R2] Branch names: when a Linear issue ID exists, use `<type>/<issue-id>-<short-slug>` (e.g., `fix/wha-123-add-onboarding-flow`); otherwise use a concise lowercase kebab‑case slug (e.g., `fix-typo-readme`).
+- [R2] Branch names: when a Linear issue ID exists, use `<type>/<issue-id>-<short-slug>` (e.g., `fix/wha-123-add-onboarding-flow`).
 - [R3] Keep branches focused: one logical change per PR. Avoid sweeping refactors and unrelated changes.
 - [R4] Commit message subject is imperative, ≤72 chars, no emojis. Must follow conventional commits.
 - [R5] Use a multi‑line commit body when context matters: what changed, why, and any follow‑ups. Wrap long lines (~100 chars max is fine).
@@ -24,6 +24,19 @@ All git and GitHub actions.
 - [R8] Start PRs as Draft while WIP. Mark Ready only after local checks (lint/types/tests) pass and the description is accurate.
 - [R9] Don’t rewrite public history on shared branches. Force‑push with lease is OK on your own feature branch when rebasing.
 - [R10] Linear issue references: put the issue ID in the branch name when applicable and reference it in commit/PR bodies (e.g., `Resolves WHA-123`, `Closes #123`).
+
+## Closing Keywords
+Make use of closing keywords when referencing the Linear issue number.
+Acceptable keywords:
+- close, closes, closed, closing
+- fix, fixes, fixed, fixing
+- resolve, resolves, resolved, resolving
+- complete, completes, completed, completing
+
+If you want to link a PR to an issue without closing it, use these words:
+- ref, references
+- part of, related to
+- contributes to, towards
 
 ## References
 1. Conventional Commits — https://www.conventionalcommits.org/en/v1.0.0/
