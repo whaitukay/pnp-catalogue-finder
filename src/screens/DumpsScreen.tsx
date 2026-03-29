@@ -340,8 +340,9 @@ function EanBarcode({
 }
 
 function normalizeEan(
-  digits: string,
+  value: string,
 ): { format: "EAN13" | "EAN8"; value: string } | null {
+  const digits = value.replace(/\D/g, "");
   if (digits.length === 13) {
     const body = digits.slice(0, 12);
     const checkDigit = digits[12];
