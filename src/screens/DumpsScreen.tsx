@@ -97,7 +97,7 @@ export function DumpsScreen({
         {selectedDump.sourceUrl ? (
           <Pressable
             onPress={() => {
-              void Linking.openURL(selectedDump.sourceUrl);
+              void Linking.openURL(selectedDump.sourceUrl).catch(() => undefined);
             }}
             style={sharedStyles.secondaryButton}
           >
