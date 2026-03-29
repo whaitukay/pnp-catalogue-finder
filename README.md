@@ -64,7 +64,7 @@ All scripts live in `package.json`:
 ## Project layout
 
 - `App.tsx`: root state management + tabbed UI wiring
-- `src/screens/*`: tab screens (`Catalogues`, `Dumps`, `Scan URL`, `Settings`)
+- `src/screens/*`: tab screens (`Catalogues`, `Dumps`, `Settings`)
 - `src/services/pnp.ts`: discovery + PnP API scraping/pulling
 - `src/services/catalogueStore.ts`: on-device persistence (settings, caches, dumps, CSV exports)
 - `src/types.ts`: shared domain types

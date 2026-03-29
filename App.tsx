@@ -26,7 +26,6 @@ import {
 } from "./src/services/pnp";
 import { CataloguesScreen } from "./src/screens/CataloguesScreen";
 import { DumpsScreen } from "./src/screens/DumpsScreen";
-import { ScanScreen } from "./src/screens/ScanScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { BRAND } from "./src/theme";
 import type {
@@ -47,12 +46,11 @@ import {
 } from "./src/utils/catalogueUi";
 import type { DirectoryItem } from "./src/utils/catalogueUi";
 
-type TabKey = "catalogues" | "dumps" | "scan" | "settings";
+type TabKey = "catalogues" | "dumps" | "settings";
 
 const TAB_ORDER: Array<{ key: TabKey; label: string }> = [
   { key: "catalogues", label: "Catalogues" },
   { key: "dumps", label: "Dumps" },
-  { key: "scan", label: "Scan URL" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -68,12 +66,12 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Dumps, Scan URL, Settings).
- *
- * The component maintains UI navigation and data state (settings, discovered targets, cached catalogue dumps, selected dump, sync summary, pagination and search), exposes actions for refreshing/discovering catalogues, pulling/syncing catalogue data, scanning from a URL, opening cached dumps, emailing/sharing CSV exports, and saving settings, and passes derived and control props down to the screen components.
- *
- * @returns The app's root React element.
- */
+  * Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Dumps, Settings).
+  *
+  * The component maintains UI navigation and data state (settings, discovered targets, cached catalogue dumps, selected dump, sync summary, pagination and search), exposes actions for refreshing/discovering catalogues, pulling/syncing catalogue data, opening cached dumps, emailing and sharing CSV exports, and saving settings, and passes derived and control props down to the screen components.
+  *
+  * @returns The app's root React element.
+  */
 export default function App(): React.ReactElement {
   const [activeTab, setActiveTab] = useState<TabKey>("catalogues");
   const [storeCode, setStoreCode] = useState(DEFAULT_SETTINGS.storeCode);
@@ -87,7 +85,6 @@ export default function App(): React.ReactElement {
   const [siteTargets, setSiteTargets] = useState<CatalogueTarget[]>([]);
   const [cachedCatalogues, setCachedCatalogues] = useState<ManifestEntry[]>([]);
   const [selectedDump, setSelectedDump] = useState<CatalogueDump | null>(null);
-  const [scanUrl, setScanUrl] = useState("");
   const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorText, setErrorText] = useState("");
@@ -319,32 +316,6 @@ export default function App(): React.ReactElement {
     }
   }
 
-  async function runScan(): Promise<void> {
-
-    setBusyLabel("Scanning catalogue from URL...");
-    setErrorText("");
-    setStatusMessage("");
-
-    try {
-      const nextSettings = await persistSettings();
-      const outcome = await scanCatalogue(scanUrl, nextSettings.storeCode, false);
-      setSelectedDump(outcome.dump);
-      await refreshCatalogueData({
-        nextStoreCode: nextSettings.storeCode,
-        showBusy: false,
-        showLoadedMessage: false,
-      });
-      setStatusMessage(
-        `Scanned ${outcome.dump.label}: ${outcome.result.barcodesFound}/${outcome.result.itemCount} barcodes found.`,
-      );
-      setActiveTab("dumps");
-    } catch (error) {
-      setErrorText(errorMessage(error));
-    } finally {
-      setBusyLabel("");
-    }
-  }
-
   async function sendEmail(catalogueId: string): Promise<void> {
     const entry =
       cachedCatalogues.find((item) => item.catalogueId === catalogueId) ??
@@ -523,17 +494,6 @@ export default function App(): React.ReactElement {
                 pagedDumpRows={pagedDumpRows}
                 selectedDump={selectedDump}
                 visibleCachedCatalogues={visibleCachedCatalogues}
-              />
-            ) : null}
-
-            {activeTab === "scan" ? (
-              <ScanScreen
-                onScan={() => {
-                  void runScan();
-                }}
-                onScanUrlChange={setScanUrl}
-                scanUrl={scanUrl}
-                disabled={Boolean(busyLabel)}
               />
             ) : null}
 
