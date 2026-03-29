@@ -1071,8 +1071,6 @@ async function exportTarget(
     };
   }
 
-  onProgress?.(productsPhaseWeight);
-
   const details = await fetchProductDetails(
     products,
     storeCode,
