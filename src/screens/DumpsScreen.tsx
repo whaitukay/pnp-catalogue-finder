@@ -1,13 +1,17 @@
 import React from "react";
 import {
   Image,
+  KeyboardAvoidingView,
+  LayoutAnimation,
   Linking,
+  Platform,
   PixelRatio,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
 
@@ -47,96 +51,134 @@ export function DumpsScreen({
     selectedDump.catalogueEndDate,
   );
 
+  const [isSearchFocused, setIsSearchFocused] = React.useState(false);
+  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+
+  React.useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    UIManager.setLayoutAnimationEnabledExperimental?.(true);
+  }, []);
+
+  const handleSearchFocus = React.useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsSearchFocused(true);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, []);
+
+  const handleSearchBlur = React.useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsSearchFocused(false);
+  }, []);
+
   return (
-    <ScrollView contentContainerStyle={sharedStyles.content}>
-      <View style={sharedStyles.buttonRow}>
-        <Pressable onPress={onBackToCatalogues} style={sharedStyles.secondaryButton}>
-          <Text style={sharedStyles.secondaryButtonText}>Back to catalogues</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onEmailDump(selectedDump.catalogueId)}
-          style={sharedStyles.primaryButton}
-        >
-          <Text style={sharedStyles.primaryButtonText}>Email this CSV</Text>
-        </Pressable>
-      </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={sharedStyles.flex}
+    >
+      <ScrollView
+        contentContainerStyle={sharedStyles.content}
+        ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
+        style={sharedStyles.flex}
+      >
+        {!isSearchFocused ? (
+          <>
+            <View style={sharedStyles.buttonRow}>
+              <Pressable onPress={onBackToCatalogues} style={sharedStyles.secondaryButton}>
+                <Text style={sharedStyles.secondaryButtonText}>Back to catalogues</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => onEmailDump(selectedDump.catalogueId)}
+                style={sharedStyles.primaryButton}
+              >
+                <Text style={sharedStyles.primaryButtonText}>Email this CSV</Text>
+              </Pressable>
+            </View>
 
-      <View style={sharedStyles.card}>
-        <View style={sharedStyles.cardHeaderRow}>
-          <View style={sharedStyles.cardHeaderText}>
-            <Text style={sharedStyles.cardTitle}>{selectedDump.label}</Text>
-          </View>
-          {selectedDumpTiming === "active" ? (
-            <StatusBadge label="Active" variant="success" />
-          ) : null}
-          {selectedDumpTiming === "future" ? (
-            <StatusBadge label="Future" variant="warning" />
-          ) : null}
-          {selectedDumpTiming === "expired" ? (
-            <StatusBadge label="Expired" variant="danger" />
-          ) : null}
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={sharedStyles.metaText}>Items</Text>
-          <Text style={[sharedStyles.metaText, styles.summaryValue]}>
-            {selectedDump.itemCount ?? selectedDump.rows.length}
-          </Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={sharedStyles.metaText}>Start</Text>
-          <Text style={[sharedStyles.metaText, styles.summaryValue]}>
-            {formatDateStamp(selectedDump.catalogueStartDate)}
-          </Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={sharedStyles.metaText}>End</Text>
-          <Text style={[sharedStyles.metaText, styles.summaryValue]}>
-            {formatDateStamp(selectedDump.catalogueEndDate)}
-          </Text>
-        </View>
-        {selectedDump.sourceUrl ? (
-          <Pressable
-            onPress={() => {
-              void Linking.openURL(selectedDump.sourceUrl).catch((error: unknown) => {
-                console.warn("Failed to open catalogue URL", error);
-              });
-            }}
-            style={sharedStyles.secondaryButton}
-          >
-            <Text style={sharedStyles.secondaryButtonText}>View on website</Text>
-          </Pressable>
+            <View style={sharedStyles.card}>
+              <View style={sharedStyles.cardHeaderRow}>
+                <View style={sharedStyles.cardHeaderText}>
+                  <Text style={sharedStyles.cardTitle}>{selectedDump.label}</Text>
+                </View>
+                {selectedDumpTiming === "active" ? (
+                  <StatusBadge label="Active" variant="success" />
+                ) : null}
+                {selectedDumpTiming === "future" ? (
+                  <StatusBadge label="Future" variant="warning" />
+                ) : null}
+                {selectedDumpTiming === "expired" ? (
+                  <StatusBadge label="Expired" variant="danger" />
+                ) : null}
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={sharedStyles.metaText}>Items</Text>
+                <Text style={[sharedStyles.metaText, styles.summaryValue]}>
+                  {selectedDump.itemCount ?? selectedDump.rows.length}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={sharedStyles.metaText}>Start</Text>
+                <Text style={[sharedStyles.metaText, styles.summaryValue]}>
+                  {formatDateStamp(selectedDump.catalogueStartDate)}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={sharedStyles.metaText}>End</Text>
+                <Text style={[sharedStyles.metaText, styles.summaryValue]}>
+                  {formatDateStamp(selectedDump.catalogueEndDate)}
+                </Text>
+              </View>
+              {selectedDump.sourceUrl ? (
+                <Pressable
+                  onPress={() => {
+                    void Linking.openURL(selectedDump.sourceUrl).catch((error: unknown) => {
+                      console.warn("Failed to open catalogue URL", error);
+                    });
+                  }}
+                  style={sharedStyles.secondaryButton}
+                >
+                  <Text style={sharedStyles.secondaryButtonText}>View on website</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </>
         ) : null}
-      </View>
 
-      <View style={sharedStyles.card}>
-        <Text style={sharedStyles.cardTitle}>Search this dump</Text>
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={onDumpSearchChange}
-          style={sharedStyles.input}
-          value={dumpSearch}
-        />
-        <Text style={sharedStyles.metaText}>
-          Showing {filteredDumpRows.length} of {selectedDump.rows.length} item(s).
-        </Text>
-      </View>
-
-      {pagedDumpRows.length > 0 ? (
-        pagedDumpRows.map((row) => <DumpRowCard key={row.position} row={row} />)
-      ) : (
         <View style={sharedStyles.card}>
-          <Text style={sharedStyles.bodyText}>No items match that search.</Text>
+          <Text style={sharedStyles.cardTitle}>Search this dump</Text>
+          <TextInput
+            autoCapitalize="none"
+            autoCorrect={false}
+            onBlur={handleSearchBlur}
+            onChangeText={onDumpSearchChange}
+            onFocus={handleSearchFocus}
+            style={sharedStyles.input}
+            value={dumpSearch}
+          />
+          <Text style={sharedStyles.metaText}>
+            Showing {filteredDumpRows.length} of {selectedDump.rows.length} item(s).
+          </Text>
         </View>
-      )}
 
-      <PaginationControls
-        onPageChange={onDumpRowsPageChange}
-        page={dumpRowsPage}
-        pageSize={24}
-        totalItems={filteredDumpRows.length}
-      />
-    </ScrollView>
+        {pagedDumpRows.length > 0 ? (
+          pagedDumpRows.map((row) => <DumpRowCard key={row.position} row={row} />)
+        ) : (
+          <View style={sharedStyles.card}>
+            <Text style={sharedStyles.bodyText}>No items match that search.</Text>
+          </View>
+        )}
+
+        <PaginationControls
+          onPageChange={onDumpRowsPageChange}
+          page={dumpRowsPage}
+          pageSize={24}
+          totalItems={filteredDumpRows.length}
+        />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
