@@ -20,10 +20,10 @@ All git and GitHub actions.
   - Titles should follow Conventional Commits
   - Titles should end with the Linear issue ID when possible (e.g., `... (WHA-123)`)
 - [R7] PR body includes: short Context/Motivation, Changes bullets, and Verification commands run locally.
-  - The last line of the body should specify the issue ID with a keyword when applicable (e.g., `Resolves WHA-123`)
+  - The last line of the body should specify the issue ID with a keyword when applicable and always contain a closing keyword (e.g., `Resolves WHA-123`)
 - [R8] Start PRs as Draft while WIP. Mark Ready only after local checks (lint/types/tests) pass and the description is accurate.
 - [R9] Don’t rewrite public history on shared branches. Force‑push with lease is OK on your own feature branch when rebasing.
-- [R10] Linear issue references: put the issue ID in the branch name when applicable and reference it in commit/PR bodies (e.g., `Refs WHA-123`, `Closes #123`).
+- [R10] Linear issue references: put the issue ID in the branch name when applicable and reference it in commit/PR bodies (e.g., `Resolves WHA-123`, `Closes #123`).
 
 ## References
 1. Conventional Commits — https://www.conventionalcommits.org/en/v1.0.0/
