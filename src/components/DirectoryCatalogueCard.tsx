@@ -31,11 +31,11 @@ type DirectoryCatalogueCardProps = {
  * Render a card view for a directory catalogue item with status badges, metadata, and action buttons.
  *
  * Displays the catalogue's title, timing and source/cache status as badges, the catalogue date range, and action controls:
- * the primary action triggers a pull for the item, an optional "Open dump" button invokes a dump-open callback when the item is cached, and an optional link opens the catalogue's source URL.
+* the primary action triggers a pull for the item, an optional "View" button invokes a dump-open callback when the item is cached, and an optional link opens the catalogue's source URL.
  *
  * @param item - The catalogue item to display, including label, date ranges, sourceUrl, cache/site flags, and catalogueId.
  * @param onPull - Callback invoked with the `item` when the primary action (download/refresh) is pressed.
- * @param onOpenDump - Callback invoked with the item's `catalogueId` when "Open dump" is pressed (rendered only when the item is cached).
+* @param onOpenDump - Callback invoked with the item's `catalogueId` when "View" is pressed (rendered only when the item is cached).
  * @returns A React element representing the catalogue card.
  */
 export function DirectoryCatalogueCard({
@@ -161,7 +161,7 @@ export function DirectoryCatalogueCard({
             onPress={() => onOpenDump(item.catalogueId)}
             style={sharedStyles.secondaryButton}
           >
-            <Text style={sharedStyles.secondaryButtonText}>Open dump</Text>
+            <Text style={sharedStyles.secondaryButtonText}>View</Text>
           </Pressable>
         ) : null}
         {item.sourceUrl ? (

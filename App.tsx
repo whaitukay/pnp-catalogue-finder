@@ -46,16 +46,14 @@ import {
 } from "./src/utils/catalogueUi";
 import type { DirectoryItem } from "./src/utils/catalogueUi";
 
-type TabKey = "catalogues" | "dumps" | "settings";
+type TabKey = "catalogues" | "settings";
 
 const TAB_ORDER: Array<{ key: TabKey; label: string }> = [
   { key: "catalogues", label: "Catalogues" },
-  { key: "dumps", label: "Dumps" },
   { key: "settings", label: "Settings" },
 ];
 
 const CATALOGUE_PAGE_SIZE = 8;
-const DUMP_LIBRARY_PAGE_SIZE = 8;
 const DUMP_ROWS_PAGE_SIZE = 24;
 
 function errorMessage(error: unknown): string {
@@ -66,12 +64,12 @@ function errorMessage(error: unknown): string {
 }
 
 /**
-  * Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Dumps, Settings).
-  *
-  * The component maintains UI navigation and data state (settings, discovered targets, cached catalogue dumps, selected dump, sync summary, pagination and search), exposes actions for refreshing/discovering catalogues, pulling/syncing catalogue data, opening cached dumps, emailing and sharing CSV exports, and saving settings, and passes derived and control props down to the screen components.
-  *
-  * @returns The app's root React element.
-  */
+* Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Settings) plus the dump detail view.
+*
+* The component maintains UI navigation and data state (settings, discovered targets, cached catalogue dumps, selected dump, sync summary, pagination and search), exposes actions for refreshing/discovering catalogues, pulling/syncing catalogue data, opening cached dumps, emailing/sharing CSV exports, and saving settings, and passes derived and control props down to the screen components.
+*
+* @returns The app's root React element.
+*/
 export default function App(): React.ReactElement {
   const [activeTab, setActiveTab] = useState<TabKey>("catalogues");
   const [storeCode, setStoreCode] = useState(DEFAULT_SETTINGS.storeCode);
@@ -90,7 +88,6 @@ export default function App(): React.ReactElement {
   const [errorText, setErrorText] = useState("");
   const [busyLabel, setBusyLabel] = useState("");
   const [cataloguePage, setCataloguePage] = useState(0);
-  const [dumpLibraryPage, setDumpLibraryPage] = useState(0);
   const [dumpRowsPage, setDumpRowsPage] = useState(0);
   const [dumpSearch, setDumpSearch] = useState("");
   const [provisionalWindows, setProvisionalWindows] = useState<
@@ -119,10 +116,6 @@ export default function App(): React.ReactElement {
     return paginate(directoryItems, cataloguePage, CATALOGUE_PAGE_SIZE);
   }, [cataloguePage, directoryItems]);
 
-  const pagedDumpLibrary = useMemo(() => {
-    return paginate(visibleCachedCatalogues, dumpLibraryPage, DUMP_LIBRARY_PAGE_SIZE);
-  }, [dumpLibraryPage, visibleCachedCatalogues]);
-
   const filteredDumpRows = useMemo(() => {
     if (!selectedDump) {
       return [];
@@ -145,10 +138,6 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     setCataloguePage(0);
   }, [directoryItems.length, hideExpiredCatalogues]);
-
-  useEffect(() => {
-    setDumpLibraryPage(0);
-  }, [visibleCachedCatalogues.length]);
 
   useEffect(() => {
     setDumpRowsPage(0);
@@ -308,7 +297,8 @@ export default function App(): React.ReactElement {
       }
       setSelectedDump(dump);
       setDumpSearch("");
-      setActiveTab("dumps");
+      setDumpRowsPage(0);
+      setActiveTab("catalogues");
     } catch (error) {
       setErrorText(errorMessage(error));
     } finally {
@@ -449,52 +439,48 @@ export default function App(): React.ReactElement {
 
           <View style={styles.flex}>
             {activeTab === "catalogues" ? (
-              <CataloguesScreen
-                cachedCount={visibleCachedCatalogues.length}
-                cataloguePage={cataloguePage}
-                directoryItems={directoryItems}
-                hideExpiredCatalogues={hideExpiredCatalogues}
-                onCataloguePageChange={setCataloguePage}
-                onForceRefresh={() => {
-                  void runPull(true);
-                }}
-                onOpenDump={(catalogueId) => {
-                  void openDump(catalogueId);
-                }}
-                onPullAll={() => {
-                  void runPull(false);
-                }}
-                onPullItem={(item) => {
-                  void pullSingleCatalogue(item);
-                }}
-                onRefreshList={() => {
-                  void refreshCatalogueData();
-                }}
-                pagedDirectoryItems={pagedDirectoryItems}
-                siteCount={siteTargets.length}
-                syncSummary={syncSummary}
-              />
-            ) : null}
-
-            {activeTab === "dumps" ? (
-              <DumpsScreen
-                dumpLibraryPage={dumpLibraryPage}
-                dumpRowsPage={dumpRowsPage}
-                dumpSearch={dumpSearch}
-                filteredDumpRows={filteredDumpRows}
-                onBackToLibrary={() => setSelectedDump(null)}
-                onDumpLibraryPageChange={setDumpLibraryPage}
-                onDumpRowsPageChange={setDumpRowsPage}
-                onDumpSearchChange={setDumpSearch}
-                onEmailDump={handleEmailDump}
-                onOpenDump={(catalogueId) => {
-                  void openDump(catalogueId);
-                }}
-                pagedDumpLibrary={pagedDumpLibrary}
-                pagedDumpRows={pagedDumpRows}
-                selectedDump={selectedDump}
-                visibleCachedCatalogues={visibleCachedCatalogues}
-              />
+              selectedDump ? (
+                <DumpsScreen
+                  dumpRowsPage={dumpRowsPage}
+                  dumpSearch={dumpSearch}
+                  filteredDumpRows={filteredDumpRows}
+                  onBackToCatalogues={() => {
+                    setSelectedDump(null);
+                    setActiveTab("catalogues");
+                  }}
+                  onDumpRowsPageChange={setDumpRowsPage}
+                  onDumpSearchChange={setDumpSearch}
+                  onEmailDump={handleEmailDump}
+                  pagedDumpRows={pagedDumpRows}
+                  selectedDump={selectedDump}
+                />
+              ) : (
+                <CataloguesScreen
+                  cachedCount={visibleCachedCatalogues.length}
+                  cataloguePage={cataloguePage}
+                  directoryItems={directoryItems}
+                  hideExpiredCatalogues={hideExpiredCatalogues}
+                  onCataloguePageChange={setCataloguePage}
+                  onForceRefresh={() => {
+                    void runPull(true);
+                  }}
+                  onOpenDump={(catalogueId) => {
+                    void openDump(catalogueId);
+                  }}
+                  onPullAll={() => {
+                    void runPull(false);
+                  }}
+                  onPullItem={(item) => {
+                    void pullSingleCatalogue(item);
+                  }}
+                  onRefreshList={() => {
+                    void refreshCatalogueData();
+                  }}
+                  pagedDirectoryItems={pagedDirectoryItems}
+                  siteCount={siteTargets.length}
+                  syncSummary={syncSummary}
+                />
+              )
             ) : null}
 
             {activeTab === "settings" ? (
