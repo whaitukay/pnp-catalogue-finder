@@ -49,7 +49,8 @@ export function DirectoryCatalogueCard({
   const [thumbnailLoadFailed, setThumbnailLoadFailed] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
 
-  const canShowThumbnail = Boolean(item.catalogueImageUrl) && !thumbnailLoadFailed;
+  const hasThumbnailUrl = Boolean(item.catalogueImageUrl);
+  const showThumbnail = hasThumbnailUrl && !thumbnailLoadFailed;
 
   useEffect(() => {
     setThumbnailLoadFailed(false);
@@ -61,24 +62,28 @@ export function DirectoryCatalogueCard({
       <View style={sharedStyles.cardHeaderRow}>
         <View style={sharedStyles.cardHeaderText}>
           <View style={styles.titleRow}>
-            {canShowThumbnail ? (
+            {hasThumbnailUrl ? (
               <>
                 <Pressable
-                  delayLongPress={1000}
+                  delayLongPress={2000}
                   onLongPress={() => setPreviewVisible(true)}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.label} thumbnail`}
                   accessibilityHint="Long press to preview full screen"
                 >
-                  <Image
-                    source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}
-                    style={styles.thumbnail}
-                    resizeMode="cover"
-                    onError={() => {
-                      setThumbnailLoadFailed(true);
-                      setPreviewVisible(false);
-                    }}
-                  />
+                  {showThumbnail ? (
+                    <Image
+                      source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}
+                      style={styles.thumbnail}
+                      resizeMode="cover"
+                      onError={() => {
+                        setThumbnailLoadFailed(true);
+                        setPreviewVisible(false);
+                      }}
+                    />
+                  ) : (
+                    <View style={styles.thumbnail} />
+                  )}
                 </Pressable>
                 {previewVisible ? (
                   <Modal
