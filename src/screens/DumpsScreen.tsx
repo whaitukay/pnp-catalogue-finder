@@ -291,6 +291,14 @@ function EanBarcode({
   const [source, setSource] = React.useState<bwipjs.DataURL | null>(null);
 
   React.useEffect(() => {
+    const scale = Math.max(1, Math.round(PixelRatio.get()));
+    const cacheKey = `${format}:${value}:${scale}`;
+    const cachedSource = barcodeImageCache.get(cacheKey);
+    if (cachedSource) {
+      setSource(cachedSource);
+      return;
+    }
+
     let cancelled = false;
     setSource(null);
 
@@ -298,12 +306,19 @@ function EanBarcode({
       .toDataURL({
         bcid: format === "EAN13" ? "ean13" : "ean8",
         text: value,
-        scale: PixelRatio.get(),
+        scale,
         height: 12,
         includetext: true,
       })
       .then((nextSource: bwipjs.DataURL) => {
         if (!cancelled) {
+          barcodeImageCache.set(cacheKey, nextSource);
+          if (barcodeImageCache.size > BARCODE_IMAGE_CACHE_LIMIT) {
+            const keyToEvict = barcodeImageCache.keys().next().value;
+            if (typeof keyToEvict === "string") {
+              barcodeImageCache.delete(keyToEvict);
+            }
+          }
           setSource(nextSource);
         }
       })
@@ -354,6 +369,12 @@ function normalizeEan(
   }
 
   if (digits.length === 12) {
+    const upcBody = digits.slice(0, 11);
+    const upcCheckDigit = digits[11];
+    if (upcCheckDigit === upcACheckDigit(upcBody)) {
+      return { format: "EAN13", value: `0${digits}` };
+    }
+
     return { format: "EAN13", value: `${digits}${ean13CheckDigit(digits)}` };
   }
 
@@ -384,6 +405,16 @@ function ean13CheckDigit(twelveDigits: string): string {
   return String((10 - (sum % 10)) % 10);
 }
 
+function upcACheckDigit(elevenDigits: string): string {
+  let sum = 0;
+  for (let index = 0; index < 11; index += 1) {
+    const digit = Number(elevenDigits[index]);
+    sum += digit * (index % 2 === 0 ? 3 : 1);
+  }
+
+  return String((10 - (sum % 10)) % 10);
+}
+
 function ean8CheckDigit(sevenDigits: string): string {
   let sum = 0;
   for (let index = 0; index < 7; index += 1) {
@@ -393,6 +424,9 @@ function ean8CheckDigit(sevenDigits: string): string {
 
   return String((10 - (sum % 10)) % 10);
 }
+
+const BARCODE_IMAGE_CACHE_LIMIT = 200;
+const barcodeImageCache = new Map<string, bwipjs.DataURL>();
 
 const styles = StyleSheet.create({
   dumpRowCardRow: {
