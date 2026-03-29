@@ -289,6 +289,14 @@ export default function App(): React.ReactElement {
   }
 
   async function pullSingleCatalogue(item: DirectoryItem): Promise<void> {
+    if (item.fromCache && !item.fromSite && item.expired) {
+      Alert.alert(
+        "Catalogue expired",
+        "That catalogue is expired and no longer available for refresh. You can still view the cached dump.",
+      );
+      return;
+    }
+
     setDownloadingCatalogueId(item.catalogueId);
     setDownloadProgressPercent(0);
     setBusyLabel(`Pulling ${item.label}...`);
@@ -298,10 +306,20 @@ export default function App(): React.ReactElement {
     try {
       const nextSettings = await persistSettings();
       const outcome = await scanCatalogue(
-        item.pullSource,
+        {
+          slug: item.slug,
+          label: item.label,
+          query: item.query,
+          sourceUrl: item.sourceUrl || undefined,
+          discoveredFrom: item.discoveredFrom || undefined,
+          siteOrder: item.siteOrder,
+          catalogueStartDate: item.catalogueStartDate,
+          catalogueEndDate: item.catalogueEndDate,
+          catalogueImageUrl: item.catalogueImageUrl || undefined,
+        },
         nextSettings.storeCode,
-        false,
-        item.label,
+        item.fromCache,
+        undefined,
         (progress) => {
           setDownloadProgressPercent(Math.round(progress * 100));
         },

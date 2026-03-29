@@ -56,16 +56,21 @@ export function DirectoryCatalogueCard({
 }: DirectoryCatalogueCardProps): React.ReactElement {
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const safeAreaInsets = useSafeAreaInsets();
-  const timingStatus = getCatalogueTimingStatus(
-    item.promotionStartDate,
-    item.promotionEndDate,
-  );
+  const timingStartDate = item.promotionStartDate ?? item.catalogueStartDate;
+  const timingEndDate = item.promotionEndDate ?? item.catalogueEndDate;
+  const timingStatus = getCatalogueTimingStatus(timingStartDate, timingEndDate);
+  const refreshDisabled = item.fromCache && !item.fromSite && timingStatus === "expired";
+  const actionDisabled = pullDisabled || refreshDisabled;
+  const primaryActionLabel = refreshDisabled
+    ? "Expired"
+    : item.fromCache
+      ? "Refresh"
+      : "Download";
   const [thumbnailLoadFailed, setThumbnailLoadFailed] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
 
   const hasThumbnailUrl = Boolean(item.catalogueImageUrl);
   const showThumbnail = hasThumbnailUrl && !thumbnailLoadFailed;
-  const pullButtonLabel = item.fromCache ? "Refresh" : "Download";
   const progressPercent = clampPercent(downloadProgressPercent);
 
   useEffect(() => {
@@ -165,16 +170,16 @@ export function DirectoryCatalogueCard({
       </Text>
       <View style={sharedStyles.buttonRow}>
         <Pressable
-          disabled={pullDisabled}
+          disabled={actionDisabled}
           onPress={() => onPull(item)}
           style={[
             sharedStyles.primaryButton,
             styles.pullButton,
-            pullDisabled && styles.pullButtonDisabled,
+            actionDisabled && styles.pullButtonDisabled,
           ]}
         >
           <Text style={[sharedStyles.primaryButtonText, styles.pullButtonGhostLabel]}>
-            {pullButtonLabel}
+            {primaryActionLabel}
           </Text>
 
           {isDownloading ? (
@@ -193,7 +198,7 @@ export function DirectoryCatalogueCard({
 
           <View pointerEvents="none" style={styles.pullButtonOverlay}>
             <Text style={sharedStyles.primaryButtonText}>
-              {isDownloading ? `${Math.round(progressPercent)}%` : pullButtonLabel}
+              {isDownloading ? `${Math.round(progressPercent)}%` : primaryActionLabel}
             </Text>
           </View>
         </Pressable>

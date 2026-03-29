@@ -12,7 +12,7 @@ const catalogueStoreMocks = vi.hoisted(() => {
       csvUri: "file://mock.csv",
       dumpUri: "file://mock.json",
     })),
-    saveManifestCache: vi.fn(async () => undefined),
+    saveManifestCache: vi.fn(async (_cache: unknown) => undefined),
     saveProductCache: vi.fn(async () => undefined),
   };
 });
@@ -130,6 +130,207 @@ describe("pnp mapper regression coverage", () => {
       promotionEndDate: Date.parse("2026-03-27T21:59:59.000Z"),
       promotionRanges:
         "2026-03-27 -> 2026-03-27 [Combo For R100.00]",
+    });
+  });
+
+  it("persists catalogue listing metadata when exporting", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/products/search?")) {
+        return {
+          ok: true,
+          text: async () =>
+            JSON.stringify({
+              pagination: { totalPages: 1, totalResults: 1 },
+              products: [
+                {
+                  code: "000000000000886223_EA",
+                  name: "PnP Beef Burger 400g",
+                  url: "/pnp-beef-burger-400g/p/000000000000886223_EA",
+                  price: { formattedValue: "R55.99" },
+                  potentialPromotions: [],
+                },
+              ],
+            }),
+        };
+      }
+
+      if (url.includes("/products/000000000000886223_EA?")) {
+        return {
+          ok: true,
+          text: async () =>
+            JSON.stringify({
+              code: "000000000000886223_EA",
+              baseProduct: "000000000000886223",
+              name: "PnP Beef Burger 400g",
+              url: "/pnp-beef-burger-400g/p/000000000000886223_EA",
+              price: { formattedValue: "R55.99" },
+              productDetailsDisplayInfoResponse: {
+                productDetailDisplayInfos: [
+                  {
+                    displayInfoFields: [
+                      {
+                        name: "Barcode",
+                        values: [{ value: "6001000000001" }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            }),
+        };
+      }
+
+      return {
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+        text: async () => JSON.stringify({ errors: [{ message: "Not Found" }] }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    catalogueStoreMocks.loadManifestCache.mockImplementation(async () => ({
+      catalogues: {},
+    }));
+
+    await pullCatalogueTarget(
+      {
+        slug: "burger-fridays",
+        label: "Pick n Pay Burger Fridays",
+        query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
+        sourceUrl: "https://www.pnp.co.za/c/burger-fridays",
+        discoveredFrom: "unit-test",
+        catalogueImageUrl: "https://cdn.example.com/burger-fridays.jpg",
+        catalogueStartDate: Date.parse("2026-03-25T22:00:00.000Z"),
+        catalogueEndDate: Date.parse("2026-03-29T21:59:59.999Z"),
+      },
+      "WC21",
+      true,
+    );
+
+    expect(catalogueStoreMocks.saveManifestCache).toHaveBeenCalledTimes(1);
+    const savedManifest = catalogueStoreMocks.saveManifestCache.mock.calls[0]?.[0] as {
+      catalogues?: Record<string, unknown>;
+    };
+    expect(savedManifest?.catalogues?.["WC21:burger-fridays"]).toMatchObject({
+      label: "Pick n Pay Burger Fridays",
+      slug: "burger-fridays",
+      sourceUrl: "https://www.pnp.co.za/c/burger-fridays",
+      discoveredFrom: "unit-test",
+      catalogueImageUrl: "https://cdn.example.com/burger-fridays.jpg",
+      catalogueStartDate: Date.parse("2026-03-25T22:00:00.000Z"),
+      catalogueEndDate: Date.parse("2026-03-29T21:59:59.999Z"),
+    });
+  });
+
+  it("preserves cached catalogue metadata when refreshed listing data is incomplete", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/products/search?")) {
+        return {
+          ok: true,
+          text: async () =>
+            JSON.stringify({
+              pagination: { totalPages: 1, totalResults: 1 },
+              products: [
+                {
+                  code: "000000000000886223_EA",
+                  name: "PnP Beef Burger 400g",
+                  url: "/pnp-beef-burger-400g/p/000000000000886223_EA",
+                  price: { formattedValue: "R55.99" },
+                  potentialPromotions: [],
+                },
+              ],
+            }),
+        };
+      }
+
+      if (url.includes("/products/000000000000886223_EA?")) {
+        return {
+          ok: true,
+          text: async () =>
+            JSON.stringify({
+              code: "000000000000886223_EA",
+              baseProduct: "000000000000886223",
+              name: "PnP Beef Burger 400g",
+              url: "/pnp-beef-burger-400g/p/000000000000886223_EA",
+              price: { formattedValue: "R55.99" },
+              productDetailsDisplayInfoResponse: {
+                productDetailDisplayInfos: [
+                  {
+                    displayInfoFields: [
+                      {
+                        name: "Barcode",
+                        values: [{ value: "6001000000001" }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            }),
+        };
+      }
+
+      return {
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+        text: async () => JSON.stringify({ errors: [{ message: "Not Found" }] }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const existingStart = Date.parse("2026-03-25T22:00:00.000Z");
+    const existingEnd = Date.parse("2026-03-29T21:59:59.999Z");
+    const existingPromotionEnd = Date.parse("2026-03-27T21:59:59.000Z");
+
+    catalogueStoreMocks.loadManifestCache.mockImplementation(async () => ({
+      catalogues: {
+        "WC21:burger-fridays": {
+          catalogueId: "WC21:burger-fridays",
+          storeCode: "WC21",
+          label: "Pick n Pay Burger Fridays",
+          slug: "burger-fridays",
+          query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
+          itemCount: 1,
+          barcodeCount: 1,
+          productCodes: ["000000000000886223_EA"],
+          exportedAt: Date.parse("2026-03-26T10:00:00.000Z"),
+          sourceUrl: "https://www.pnp.co.za/c/burger-fridays",
+          discoveredFrom: "cms",
+          catalogueImageUrl: "https://cdn.example.com/burger-fridays.jpg",
+          catalogueStartDate: existingStart,
+          catalogueEndDate: existingEnd,
+          promotionStartDate: existingStart,
+          promotionEndDate: existingPromotionEnd,
+          expired: false,
+          csvUri: "file://mock.csv",
+          dumpUri: "file://mock.json",
+        },
+      },
+    }));
+
+    await pullCatalogueTarget(
+      {
+        slug: "burger-fridays",
+        label: "burger-fridays",
+        query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
+      },
+      "WC21",
+      true,
+    );
+
+    const savedManifest = catalogueStoreMocks.saveManifestCache.mock.calls[0]?.[0] as {
+      catalogues?: Record<string, unknown>;
+    };
+    expect(savedManifest?.catalogues?.["WC21:burger-fridays"]).toMatchObject({
+      label: "Pick n Pay Burger Fridays",
+      slug: "burger-fridays",
+      sourceUrl: "https://www.pnp.co.za/c/burger-fridays",
+      discoveredFrom: "cms",
+      catalogueImageUrl: "https://cdn.example.com/burger-fridays.jpg",
+      catalogueStartDate: existingStart,
+      catalogueEndDate: existingEnd,
+      promotionEndDate: existingEnd,
     });
   });
 

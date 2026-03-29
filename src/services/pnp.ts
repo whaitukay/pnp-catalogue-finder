@@ -1034,6 +1034,26 @@ async function exportTarget(
   const key = catalogueIdForTarget(storeCode, target);
   const existingEntry = manifest.catalogues[key];
 
+  const slug = target.slug ?? existingEntry?.slug ?? target.label;
+  let label = target.label;
+  if (
+    existingEntry &&
+    target.slug &&
+    target.label === target.slug &&
+    existingEntry.label &&
+    existingEntry.label !== existingEntry.slug
+  ) {
+    label = existingEntry.label;
+  }
+  const sourceUrl = target.sourceUrl ?? existingEntry?.sourceUrl ?? "";
+  const discoveredFrom = target.discoveredFrom ?? existingEntry?.discoveredFrom ?? "";
+  const catalogueStartDate = target.catalogueStartDate ?? existingEntry?.catalogueStartDate ?? null;
+  const catalogueEndDate = target.catalogueEndDate ?? existingEntry?.catalogueEndDate ?? null;
+  const catalogueImageUrl = coalesceCatalogueImageUrl(
+    target.catalogueImageUrl,
+    existingEntry?.catalogueImageUrl,
+  );
+
   onProgress?.(0);
 
   const productsPhaseWeight = 0.2;
@@ -1086,24 +1106,26 @@ async function exportTarget(
   const rows = buildRows(target, products, details);
   const barcodeCount = rows.filter((row) => row.barcodeFound).length;
   const { promotionStartDate, promotionEndDate } = deriveDumpWindow(rows);
-  const dumpStartDate = promotionStartDate ?? target.catalogueStartDate ?? null;
-  const dumpEndDate = promotionEndDate ?? target.catalogueEndDate ?? null;
-  const effectiveEndDate = dumpEndDate;
+  const dumpStartDate =
+    promotionStartDate ?? catalogueStartDate ?? existingEntry?.promotionStartDate ?? null;
+  const dumpEndDate =
+    promotionEndDate ?? catalogueEndDate ?? existingEntry?.promotionEndDate ?? null;
+  const expired = isExpired(dumpEndDate);
 
   const baseDump: CatalogueDump = {
     catalogueId: key,
     storeCode,
-    label: target.label,
-    slug: target.slug || target.label,
+    label,
+    slug,
     query: target.query,
-    sourceUrl: target.sourceUrl || "",
-    discoveredFrom: target.discoveredFrom || "",
+    sourceUrl,
+    discoveredFrom,
     exportedAt: Date.now(),
     itemCount: rows.length,
     barcodeCount,
     catalogueStartDate: dumpStartDate,
     catalogueEndDate: dumpEndDate,
-    expired: isExpired(effectiveEndDate),
+    expired,
     csvUri: "",
     rows,
   };
@@ -1112,24 +1134,21 @@ async function exportTarget(
   manifest.catalogues[key] = {
     catalogueId: key,
     storeCode,
-    label: target.label,
-    slug: target.slug || target.label,
+    label,
+    slug,
     query: target.query,
     itemCount: rows.length,
     barcodeCount,
     productCodes,
     exportedAt: persisted.dump.exportedAt,
-    sourceUrl: target.sourceUrl || "",
-    discoveredFrom: target.discoveredFrom || "",
-    catalogueImageUrl: coalesceCatalogueImageUrl(
-      target.catalogueImageUrl,
-      existingEntry?.catalogueImageUrl,
-    ),
-    catalogueStartDate: target.catalogueStartDate ?? null,
-    catalogueEndDate: target.catalogueEndDate ?? null,
-    promotionStartDate: persisted.dump.catalogueStartDate,
-    promotionEndDate: persisted.dump.catalogueEndDate,
-    expired: isExpired(effectiveEndDate),
+    sourceUrl,
+    discoveredFrom,
+    catalogueImageUrl,
+    catalogueStartDate,
+    catalogueEndDate,
+    promotionStartDate: dumpStartDate,
+    promotionEndDate: dumpEndDate,
+    expired,
     csvUri: persisted.csvUri,
     dumpUri: persisted.dumpUri,
   };
@@ -1144,13 +1163,13 @@ async function exportTarget(
       itemCount: rows.length,
       barcodesFound: barcodeCount,
       missingBarcodes: rows.length - barcodeCount,
-      sourceUrl: target.sourceUrl || "",
-      discoveredFrom: target.discoveredFrom || "",
-      catalogueStartDate: target.catalogueStartDate ?? null,
-      catalogueEndDate: target.catalogueEndDate ?? null,
-      promotionStartDate: persisted.dump.catalogueStartDate,
-      promotionEndDate: persisted.dump.catalogueEndDate,
-      expired: isExpired(effectiveEndDate),
+      sourceUrl,
+      discoveredFrom,
+      catalogueStartDate,
+      catalogueEndDate,
+      promotionStartDate: dumpStartDate,
+      promotionEndDate: dumpEndDate,
+      expired,
     },
     dump: includeDump ? persisted.dump : null,
   };
@@ -1219,20 +1238,20 @@ export async function pullCatalogueTarget(
 /**
  * Initiates export for a catalogue identified by `source` and returns the persisted dump and sync result.
  *
- * @param source - A catalogue identifier: a full URL, a `/c/<slug>` path, a colon-delimited query, or a plain label/slug; it will be parsed into a CatalogueTarget.
+* @param source - Either a catalogue identifier string (a full URL, a `/c/<slug>` path, a colon-delimited query, or a plain label/slug) or a pre-built `CatalogueTarget`.
  * @param storeCode - The store code used when querying search and detail endpoints.
  * @param forceRefresh - When true, bypasses manifest-based cache skipping and forces re-export.
  * @param label - Optional override for the catalogue label to use when exporting.
  * @returns An object containing `dump` (the persisted CatalogueDump) and `result` (the SyncItemResult summarizing the export outcome).
  */
 export async function scanCatalogue(
-  source: string,
+  source: string | CatalogueTarget,
   storeCode: string,
   forceRefresh = false,
   label?: string,
   onProgress?: FractionalProgress,
 ): Promise<{ dump: CatalogueDump; result: SyncItemResult }> {
-  const target = parseCatalogueTarget(source);
+  const target = typeof source === "string" ? parseCatalogueTarget(source) : { ...source };
   const normalizedLabel = label?.trim();
   if (normalizedLabel) {
     target.label = normalizedLabel;

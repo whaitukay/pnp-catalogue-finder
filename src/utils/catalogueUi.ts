@@ -166,6 +166,8 @@ export function buildDirectoryItems(
       continue;
     }
 
+    const effectiveEndDate = cached.promotionEndDate ?? cached.catalogueEndDate;
+
     merged.push({
       catalogueId: cached.catalogueId,
       storeCode: cached.storeCode,
@@ -185,7 +187,7 @@ export function buildDirectoryItems(
       catalogueStartDate: cached.catalogueStartDate,
       promotionStartDate: cached.promotionStartDate,
       promotionEndDate: cached.promotionEndDate,
-      expired: getCatalogueTimingStatus(null, cached.promotionEndDate) === "expired",
+      expired: getCatalogueTimingStatus(null, effectiveEndDate) === "expired",
       csvUri: cached.csvUri,
       dumpUri: cached.dumpUri,
       pullSource: cached.sourceUrl || cached.query || cached.slug || cached.label,
