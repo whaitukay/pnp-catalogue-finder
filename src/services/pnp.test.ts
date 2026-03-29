@@ -19,7 +19,7 @@ const catalogueStoreMocks = vi.hoisted(() => {
 
 vi.mock("./catalogueStore", () => catalogueStoreMocks);
 
-import { probeCatalogueWindow, pullCatalogueTarget } from "./pnp";
+import { extractValidityDates, probeCatalogueWindow, pullCatalogueTarget } from "./pnp";
 
 describe("pnp mapper regression coverage", () => {
   beforeEach(() => {
@@ -178,5 +178,36 @@ describe("pnp mapper regression coverage", () => {
 
     expect(window.promotionStartDate).toBe("2026-03-26T22:00:00.000Z");
     expect(window.promotionEndDate).toBe("2026-03-27T21:59:59.000Z");
+  });
+});
+
+describe("extractValidityDates", () => {
+  it("infers the start year for cross-year ranges when the CMS omits it", () => {
+    const html =
+      '<p class="cat-validity-date">Valid 28 December - 3 January 2026</p>';
+
+    expect(extractValidityDates(html)).toEqual({
+      validityStartDate: "28 December 2025",
+      validityEndDate: "3 January 2026",
+    });
+  });
+
+  it("preserves explicit start year for cross-year ranges", () => {
+    const html =
+      '<p class="cat-validity-date">Valid 28 December 2025 - 3 January 2026</p>';
+
+    expect(extractValidityDates(html)).toEqual({
+      validityStartDate: "28 December 2025",
+      validityEndDate: "3 January 2026",
+    });
+  });
+
+  it("copies the end year onto the start date for same-year ranges", () => {
+    const html = '<p class="cat-validity-date">Valid 26 March - 29 March 2026</p>';
+
+    expect(extractValidityDates(html)).toEqual({
+      validityStartDate: "26 March 2026",
+      validityEndDate: "29 March 2026",
+    });
   });
 });
