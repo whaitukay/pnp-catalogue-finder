@@ -240,6 +240,7 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   const hasBarcodeDigits = barcodeDigits.length > 0;
   const normalizedBarcode = React.useMemo(() => normalizeEan(barcodeDigits), [barcodeDigits]);
   const [barcodeError, setBarcodeError] = React.useState(false);
+  const barcodeToShow = barcodeError ? null : normalizedBarcode;
   const handleBarcodeError = React.useCallback(() => {
     setBarcodeError(true);
   }, []);
@@ -264,12 +265,12 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
           {!hasBarcodeDigits ? <Text style={sharedStyles.metaText}>Barcode missing</Text> : null}
           {row.error ? <Text style={sharedStyles.errorSmall}>{row.error}</Text> : null}
         </View>
-        {normalizedBarcode ? (
+        {barcodeToShow ? (
           <View style={styles.dumpRowCardBarcode}>
             <EanBarcode
-              format={normalizedBarcode.format}
+              format={barcodeToShow.format}
               onError={handleBarcodeError}
-              value={normalizedBarcode.value}
+              value={barcodeToShow.value}
             />
           </View>
         ) : null}
@@ -407,6 +408,7 @@ const styles = StyleSheet.create({
   dumpRowCardBarcode: {
     flex: 1,
     minWidth: 0,
+    minHeight: 72,
     alignItems: "flex-end",
     justifyContent: "flex-end",
   },
