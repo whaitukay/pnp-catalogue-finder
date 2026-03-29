@@ -418,7 +418,8 @@ function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
       return trimmed;
     }
 
-    // Only accept http(s) and site-relative URLs for thumbnail images.
+    // Only accept http(s) and site-relative URLs for thumbnail images. Anything else is treated as
+    // missing so cached values can be preserved.
     return undefined;
   }
   const slots = payload?.contentSlots?.contentSlot ?? [];

@@ -222,7 +222,7 @@ function ZoomableImage({
   const pinchStartDistance = React.useRef<number | null>(null);
   const pinchStartScale = React.useRef(1);
   const gestureWasPinch = React.useRef(false);
-  const didPan = React.useRef(false);
+  const didPanAfterPinch = React.useRef(false);
 
   const panResponder = React.useRef(
     PanResponder.create({
@@ -232,7 +232,7 @@ function ZoomableImage({
         pinchStartDistance.current = null;
         pinchStartScale.current = currentScale.current;
         gestureWasPinch.current = false;
-        didPan.current = false;
+        didPanAfterPinch.current = false;
       },
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
@@ -265,7 +265,9 @@ function ZoomableImage({
           return;
         }
 
-        didPan.current = true;
+        if (gestureWasPinch.current) {
+          didPanAfterPinch.current = true;
+        }
 
         const maxOffsetX = (width * (currentScale.current - 1)) / 2;
         const maxOffsetY = (height * (currentScale.current - 1)) / 2;
@@ -285,13 +287,14 @@ function ZoomableImage({
         translateY.setValue(nextY);
       },
       onPanResponderRelease: (_evt, gestureState) => {
-        if (gestureWasPinch.current && !didPan.current) {
+        if (gestureWasPinch.current && !didPanAfterPinch.current) {
           gestureWasPinch.current = false;
           pinchStartDistance.current = null;
           return;
         }
 
         gestureWasPinch.current = false;
+        didPanAfterPinch.current = false;
         pinchStartDistance.current = null;
 
         if (currentScale.current <= 1.01) {
