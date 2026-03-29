@@ -1,5 +1,13 @@
-import React from "react";
-import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import {
+  Image,
+  Linking,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { BRAND, sharedStyles } from "../theme";
 import {
@@ -35,18 +43,52 @@ export function DirectoryCatalogueCard({
     item.promotionStartDate,
     item.promotionEndDate,
   );
+  const [thumbnailLoadFailed, setThumbnailLoadFailed] = useState(false);
+  const [previewVisible, setPreviewVisible] = useState(false);
+
+  const canShowThumbnail = Boolean(item.catalogueImageUrl) && !thumbnailLoadFailed;
 
   return (
     <View style={sharedStyles.card}>
       <View style={sharedStyles.cardHeaderRow}>
         <View style={sharedStyles.cardHeaderText}>
           <View style={styles.titleRow}>
-            {item.catalogueImageUrl ? (
-              <Image
-                source={{ uri: item.catalogueImageUrl }}
-                style={styles.thumbnail}
-                resizeMode="cover"
-              />
+            {canShowThumbnail ? (
+              <>
+                <Pressable
+                  delayLongPress={2000}
+                  onLongPress={() => setPreviewVisible(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.label} thumbnail`}
+                  accessibilityHint="Long press to preview full screen"
+                >
+                  <Image
+                    source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}
+                    style={styles.thumbnail}
+                    resizeMode="cover"
+                    onError={() => setThumbnailLoadFailed(true)}
+                  />
+                </Pressable>
+                <Modal
+                  transparent
+                  animationType="fade"
+                  visible={previewVisible}
+                  onRequestClose={() => setPreviewVisible(false)}
+                >
+                  <Pressable
+                    style={styles.previewOverlay}
+                    onPress={() => setPreviewVisible(false)}
+                  >
+                    <Image
+                      source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}
+                      style={styles.previewImage}
+                      resizeMode="contain"
+                      accessibilityRole="image"
+                      accessibilityLabel={`${item.label} thumbnail preview`}
+                    />
+                  </Pressable>
+                </Modal>
+              </>
             ) : null}
             <Text style={[sharedStyles.cardTitle, styles.titleText]}>{item.label}</Text>
           </View>
@@ -114,6 +156,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BRAND.border,
     backgroundColor: BRAND.blueSoft,
+  },
+  previewOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.92)",
+    padding: 16,
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
   },
   badges: {
     flexDirection: "row",
