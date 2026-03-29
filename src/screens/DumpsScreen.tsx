@@ -297,10 +297,6 @@ function ean13CheckDigit(twelveDigits: string): string {
   let sum = 0;
   for (let index = 0; index < 12; index += 1) {
     const digit = Number(twelveDigits[index]);
-    if (!Number.isFinite(digit)) {
-      return "0";
-    }
-
     sum += digit * (index % 2 === 0 ? 1 : 3);
   }
 
