@@ -9,6 +9,7 @@ import {
   saveManifestCache,
   saveProductCache,
 } from "./catalogueStore";
+import { coalesceCatalogueImageUrl } from "../utils/catalogueImageUrl";
 import type {
   CatalogueDump,
   CatalogueTarget,
@@ -1085,10 +1086,10 @@ async function exportTarget(
     exportedAt: persisted.dump.exportedAt,
     sourceUrl: target.sourceUrl || "",
     discoveredFrom: target.discoveredFrom || "",
-    catalogueImageUrl:
-      target.catalogueImageUrl === undefined
-        ? existingEntry?.catalogueImageUrl ?? null
-        : target.catalogueImageUrl,
+    catalogueImageUrl: coalesceCatalogueImageUrl(
+      target.catalogueImageUrl,
+      existingEntry?.catalogueImageUrl,
+    ),
     catalogueStartDate: target.catalogueStartDate ?? null,
     catalogueEndDate: target.catalogueEndDate ?? null,
     promotionStartDate: persisted.dump.catalogueStartDate,
