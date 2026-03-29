@@ -142,7 +142,6 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 10,
   },
   summaryValue: {
     fontWeight: "800",
