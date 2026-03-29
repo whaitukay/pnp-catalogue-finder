@@ -12,7 +12,9 @@ All git and GitHub actions.
 
 ## Rules
 - [R1] Never push directly to the default branch (`dev`). Create a branch and open a PR.
-- [R2] Branch names: when a Linear issue ID exists, use `<type>/<issue-id>-<short-slug>` (e.g., `fix/wha-123-add-onboarding-flow`).
+- [R2] Branch names: use `<type>/<issue-id>-<short-slug>` (e.g., `fix/wha-123-add-onboarding-flow`).
+  - types are `feat`, `fix`, `chore`, `ci`, `docs`
+  - branches without type prefixes will be rejected.
 - [R3] Keep branches focused: one logical change per PR. Avoid sweeping refactors and unrelated changes.
 - [R4] Commit message subject is imperative, ≤72 chars, no emojis. Must follow conventional commits.
 - [R5] Use a multi‑line commit body when context matters: what changed, why, and any follow‑ups. Wrap long lines (~100 chars max is fine).
