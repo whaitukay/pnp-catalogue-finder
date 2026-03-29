@@ -4,6 +4,10 @@ import {
   DEFAULT_EXPORT_FIELDS,
   EXPORT_FIELD_OPTIONS,
 } from "../types";
+import {
+  formatDateYyyyMmDd,
+  parseDateTimestamp,
+} from "../utils/dateUtils";
 import type {
   AppSettings,
   CatalogueDump,
@@ -99,115 +103,37 @@ function normalizeNullableText(value: unknown): string | null {
   return text || null;
 }
 
-function parseDateValue(value: string | null, endOfDay = false): number | null {
-  if (!value) {
+function minTimestamp(values: Array<number | null>): number | null {
+  const filtered = values.filter((value): value is number => {
+    return typeof value === "number" && Number.isFinite(value);
+  });
+
+  if (filtered.length === 0) {
     return null;
   }
 
-  const trimmed = value.trim();
-  if (!trimmed) {
+  return filtered.reduce((min, value) => (value < min ? value : min), filtered[0]);
+}
+
+function maxTimestamp(values: Array<number | null>): number | null {
+  const filtered = values.filter((value): value is number => {
+    return typeof value === "number" && Number.isFinite(value);
+  });
+
+  if (filtered.length === 0) {
     return null;
   }
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    const parsed = Date.parse(
-      endOfDay ? `${trimmed}T23:59:59.999` : `${trimmed}T00:00:00.000`,
-    );
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-
-  const parsed = Date.parse(trimmed);
-  return Number.isNaN(parsed) ? null : parsed;
+  return filtered.reduce((max, value) => (value > max ? value : max), filtered[0]);
 }
 
-function minDate(values: Array<string | null>): string | null {
-  const dated = values
-    .map((value) => ({
-      value: value ?? null,
-      millis: parseDateValue(value ?? null),
-    }))
-    .filter((item): item is { value: string; millis: number } => {
-      return Boolean(item.value) && item.millis != null;
-    })
-    .sort((left, right) => left.millis - right.millis);
-
-  return dated[0]?.value ?? null;
-}
-
-function maxDate(values: Array<string | null>): string | null {
-  const dated = values
-    .map((value) => ({
-      value: value ?? null,
-      millis: parseDateValue(value ?? null, true),
-    }))
-    .filter((item): item is { value: string; millis: number } => {
-      return Boolean(item.value) && item.millis != null;
-    })
-    .sort((left, right) => right.millis - left.millis);
-
-  return dated[0]?.value ?? null;
-}
-
-function isExpired(endDate: string | null): boolean {
-  const millis = parseDateValue(endDate ?? null, true);
-  return millis != null && millis < Date.now();
-}
-
-function formatDateForCsv(value: string | null): string {
-  return normalizeText(value);
-}
-
-/** PnP-style offsets at end: `Z`, `±HH:MM`, `±HHMM`. */
-function hasExplicitTimezone(value: string): boolean {
-  return /[zZ]$|[+-]\d{2}:?\d{2}$/.test(value.trim());
-}
-
-/**
- * If the string has no timezone, treat it as **SAST wall time** (GMT+2).
- * If it is Zulu/UTC (`Z`, `±00:00`), keep it — `Date` + Johannesburg formatting apply the offset.
- */
-function normalizeIsoForSaParsing(value: string): string {
-  const t = value.trim();
-  if (!t) {
-    return t;
-  }
-  if (hasExplicitTimezone(t)) {
-    return t;
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
-    return `${t}T12:00:00+02:00`;
-  }
-  if (t.includes("T")) {
-    return `${t}+02:00`;
-  }
-  return t;
-}
-
-const CSV_CALENDAR_TIME_ZONE = "Africa/Johannesburg";
-
-/** ISO timestamps → `YYYY-MM-DD` in South Africa local calendar for spreadsheet-friendly CSV cells. */
-function formatDateOnlyForCsv(value: string | null): string {
-  const trimmed = normalizeText(value);
-  if (!trimmed) {
-    return "";
-  }
-  const iso = normalizeIsoForSaParsing(trimmed);
-  const parsed = Date.parse(iso);
-  if (Number.isNaN(parsed)) {
-    return trimmed;
-  }
-  const instant = new Date(parsed);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: CSV_CALENDAR_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(instant);
+function isExpired(endTimestamp: number | null): boolean {
+  return endTimestamp != null && endTimestamp < Date.now();
 }
 
 function formatPromotionRange(promotion: PromotionWindow): string {
-  const start = formatDateForCsv(promotion.startDate);
-  const end = formatDateForCsv(promotion.endDate);
+  const start = formatDateYyyyMmDd(promotion.startDate);
+  const end = formatDateYyyyMmDd(promotion.endDate);
 
   if (start && end) {
     return `${start} -> ${end}`;
@@ -256,10 +182,11 @@ function normalizeSettings(raw: unknown): AppSettings {
 }
 
 function normalizePromotion(promotion: unknown): PromotionWindow {
+  const raw = promotion as PromotionWindow | null;
   return {
-    text: normalizeText((promotion as PromotionWindow | null)?.text),
-    startDate: normalizeNullableText((promotion as PromotionWindow | null)?.startDate),
-    endDate: normalizeNullableText((promotion as PromotionWindow | null)?.endDate),
+    text: normalizeText(raw?.text),
+    startDate: parseDateTimestamp(raw?.startDate),
+    endDate: parseDateTimestamp(raw?.endDate, { endOfDay: true }),
   };
 }
 
@@ -269,11 +196,11 @@ function normalizeRow(row: unknown): ProductRow {
     ? raw.promotions.map((promotion) => normalizePromotion(promotion))
     : [];
   const promotionStartDate =
-    normalizeNullableText(raw?.promotionStartDate) ??
-    minDate(promotions.map((promotion) => promotion.startDate));
+    parseDateTimestamp(raw?.promotionStartDate) ??
+    minTimestamp(promotions.map((promotion) => promotion.startDate));
   const promotionEndDate =
-    normalizeNullableText(raw?.promotionEndDate) ??
-    maxDate(promotions.map((promotion) => promotion.endDate));
+    parseDateTimestamp(raw?.promotionEndDate, { endOfDay: true }) ??
+    maxTimestamp(promotions.map((promotion) => promotion.endDate));
 
   return {
     position:
@@ -301,17 +228,16 @@ function normalizeRow(row: unknown): ProductRow {
 function normalizeDumpValue(dump: unknown): CatalogueDump {
   const raw = dump as CatalogueDump | null;
   const rows = Array.isArray(raw?.rows) ? raw.rows.map((row) => normalizeRow(row)) : [];
-  const promotionStartDate =
-    normalizeNullableText(raw?.catalogueStartDate) ??
-    minDate(rows.map((row) => row.promotionStartDate));
-  const promotionEndDate =
-    normalizeNullableText(raw?.catalogueEndDate) ??
-    maxDate(rows.map((row) => row.promotionEndDate));
+  const catalogueStartDate =
+    parseDateTimestamp(raw?.catalogueStartDate) ??
+    minTimestamp(rows.map((row) => row.promotionStartDate));
+  const catalogueEndDate =
+    parseDateTimestamp(raw?.catalogueEndDate, { endOfDay: true }) ??
+    maxTimestamp(rows.map((row) => row.promotionEndDate));
   const barcodeCount =
     typeof raw?.barcodeCount === "number" && Number.isFinite(raw.barcodeCount)
       ? raw.barcodeCount
       : rows.filter((row) => row.barcodeFound).length;
-  const catalogueEndDate = normalizeNullableText(raw?.catalogueEndDate);
 
   return {
     catalogueId: normalizeText(raw?.catalogueId),
@@ -330,10 +256,9 @@ function normalizeDumpValue(dump: unknown): CatalogueDump {
         ? raw.itemCount
         : rows.length,
     barcodeCount,
-    catalogueStartDate: normalizeNullableText(raw?.catalogueStartDate),
-    catalogueEndDate: catalogueEndDate,
-    expired:
-      typeof raw?.expired === "boolean" ? raw.expired : isExpired(catalogueEndDate),
+    catalogueStartDate,
+    catalogueEndDate,
+    expired: isExpired(catalogueEndDate),
     csvUri: normalizeText(raw?.csvUri),
     rows,
   };
@@ -341,6 +266,13 @@ function normalizeDumpValue(dump: unknown): CatalogueDump {
 
 function normalizeManifestEntry(entry: unknown): ManifestEntry {
   const raw = entry as ManifestEntry | null;
+
+  const catalogueStartDate = parseDateTimestamp(raw?.catalogueStartDate);
+  const catalogueEndDate = parseDateTimestamp(raw?.catalogueEndDate, { endOfDay: true });
+  const promotionStartDate = parseDateTimestamp(raw?.promotionStartDate);
+  const promotionEndDate = parseDateTimestamp(raw?.promotionEndDate, { endOfDay: true });
+  const effectiveEndDate = promotionEndDate ?? catalogueEndDate;
+
   return {
     catalogueId: normalizeText(raw?.catalogueId),
     storeCode: normalizeText(raw?.storeCode),
@@ -365,14 +297,11 @@ function normalizeManifestEntry(entry: unknown): ManifestEntry {
     sourceUrl: normalizeText(raw?.sourceUrl),
     discoveredFrom: normalizeText(raw?.discoveredFrom),
     catalogueImageUrl: normalizeNullableText(raw?.catalogueImageUrl),
-    catalogueStartDate: normalizeNullableText(raw?.catalogueStartDate),
-    catalogueEndDate: normalizeNullableText(raw?.catalogueEndDate),
-    promotionStartDate: normalizeNullableText(raw?.promotionStartDate),
-    promotionEndDate: normalizeNullableText(raw?.promotionEndDate),
-    expired:
-      typeof raw?.expired === "boolean"
-        ? raw.expired
-        : isExpired(normalizeNullableText(raw?.catalogueEndDate)),
+    catalogueStartDate,
+    catalogueEndDate,
+    promotionStartDate,
+    promotionEndDate,
+    expired: isExpired(effectiveEndDate),
     csvUri: normalizeText(raw?.csvUri),
     dumpUri: normalizeText(raw?.dumpUri),
   };
@@ -396,11 +325,7 @@ function normalizeManifestCache(raw: unknown): ManifestCache {
 }
 
 function sortTimestamp(entry: ManifestEntry): number {
-  return (
-    parseDateValue(entry.catalogueStartDate) ??
-    parseDateValue(entry.catalogueEndDate, true) ??
-    entry.exportedAt
-  );
+  return entry.catalogueStartDate ?? entry.catalogueEndDate ?? entry.exportedAt;
 }
 
 function buildDumpPaths(
@@ -432,11 +357,11 @@ const CSV_FIELD_DEFINITIONS: Record<ExportFieldKey, CsvFieldDefinition> = {
   },
   catalogueStartDate: {
     header: "catalogue_start_date",
-    getValue: (_row, dump) => formatDateOnlyForCsv(dump.catalogueStartDate),
+    getValue: (_row, dump) => formatDateYyyyMmDd(dump.catalogueStartDate),
   },
   catalogueEndDate: {
     header: "catalogue_end_date",
-    getValue: (_row, dump) => formatDateOnlyForCsv(dump.catalogueEndDate),
+    getValue: (_row, dump) => formatDateYyyyMmDd(dump.catalogueEndDate),
   },
   name: {
     header: "name",
@@ -464,11 +389,11 @@ const CSV_FIELD_DEFINITIONS: Record<ExportFieldKey, CsvFieldDefinition> = {
   },
   promotionStartDate: {
     header: "promotion_start_date",
-    getValue: (row) => formatDateOnlyForCsv(row.promotionStartDate),
+    getValue: (row) => formatDateYyyyMmDd(row.promotionStartDate),
   },
   promotionEndDate: {
     header: "promotion_end_date",
-    getValue: (row) => formatDateOnlyForCsv(row.promotionEndDate),
+    getValue: (row) => formatDateYyyyMmDd(row.promotionEndDate),
   },
   promotionRanges: {
     header: "promotion_ranges",

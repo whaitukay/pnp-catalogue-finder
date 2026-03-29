@@ -97,7 +97,7 @@ export default function App(): React.ReactElement {
   const [dumpRowsPage, setDumpRowsPage] = useState(0);
   const [dumpSearch, setDumpSearch] = useState("");
   const [provisionalWindows, setProvisionalWindows] = useState<
-    Record<string, { promotionStartDate: string | null; promotionEndDate: string | null }>
+    Record<string, { promotionStartDate: number | null; promotionEndDate: number | null }>
   >({});
 
   const normalizedStoreCode = useMemo(() => normalizeStoreCode(storeCode), [storeCode]);
