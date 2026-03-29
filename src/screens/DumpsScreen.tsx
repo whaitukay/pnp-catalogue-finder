@@ -301,7 +301,6 @@ function EanBarcode({
         scale: PixelRatio.get(),
         height: 12,
         includetext: true,
-        textxalign: "center",
       })
       .then((nextSource: bwipjs.DataURL) => {
         if (!cancelled) {
