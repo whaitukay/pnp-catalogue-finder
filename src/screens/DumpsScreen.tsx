@@ -25,6 +25,10 @@ import { sharedStyles } from "../theme";
 import type { CatalogueDump, ProductRow } from "../types";
 import { formatDateStamp, getCatalogueTimingStatus } from "../utils/catalogueUi";
 
+if (Platform.OS === "android") {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
+
 type DumpsScreenProps = {
   selectedDump: CatalogueDump;
   dumpSearch: string;
@@ -54,15 +58,9 @@ export function DumpsScreen({
   );
 
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
-  const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(false);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(true);
   const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
   const searchInputRef = React.useRef<React.ElementRef<typeof TextInput>>(null);
-
-  React.useLayoutEffect(() => {
-    if (Platform.OS === "android") {
-      UIManager.setLayoutAnimationEnabledExperimental?.(true);
-    }
-  }, []);
 
   React.useEffect(() => {
     let mounted = true;
