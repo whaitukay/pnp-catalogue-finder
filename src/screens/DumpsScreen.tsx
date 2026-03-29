@@ -97,7 +97,9 @@ export function DumpsScreen({
         {selectedDump.sourceUrl ? (
           <Pressable
             onPress={() => {
-              void Linking.openURL(selectedDump.sourceUrl).catch(() => undefined);
+              void Linking.openURL(selectedDump.sourceUrl).catch((error: unknown) => {
+                console.warn("Failed to open catalogue URL", error);
+              });
             }}
             style={sharedStyles.secondaryButton}
           >
