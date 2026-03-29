@@ -1,5 +1,6 @@
 import React from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { DirectoryCatalogueCard } from "../components/DirectoryCatalogueCard";
 import { PaginationControls } from "../components/PaginationControls";
@@ -10,7 +11,9 @@ import { formatDateRange } from "../utils/catalogueUi";
 
 type CataloguesScreenProps = {
   downloadingCatalogueId: string | null;
+  downloadProgressPercent: number | null;
   isBulkDownloading: boolean;
+  bulkDownloadProgressPercent: number | null;
   hideExpiredCatalogues: boolean;
   siteCount: number;
   cachedCount: number;
@@ -28,7 +31,9 @@ type CataloguesScreenProps = {
 
 export function CataloguesScreen({
   downloadingCatalogueId,
+  downloadProgressPercent,
   isBulkDownloading,
+  bulkDownloadProgressPercent,
   hideExpiredCatalogues,
   siteCount,
   cachedCount,
@@ -44,6 +49,8 @@ export function CataloguesScreen({
   onCataloguePageChange,
 }: CataloguesScreenProps): React.ReactElement {
   const downloadsDisabled = Boolean(downloadingCatalogueId) || isBulkDownloading;
+  const pullAllLabel = "Download all";
+  const bulkProgressPercent = Math.max(0, Math.min(bulkDownloadProgressPercent ?? 0, 100));
 
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
@@ -62,11 +69,32 @@ export function CataloguesScreen({
             onPress={onPullAll}
             style={[styles.heroPrimaryButton, downloadsDisabled && styles.heroPrimaryButtonDisabled]}
           >
+            <Text style={[styles.heroPrimaryButtonText, styles.heroPrimaryButtonGhostLabel]}>
+              {pullAllLabel}
+            </Text>
+
             {isBulkDownloading ? (
-              <ActivityIndicator color={BRAND.white} />
-            ) : (
-              <Text style={styles.heroPrimaryButtonText}>Download all</Text>
-            )}
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.heroPrimaryButtonFillClip,
+                  { width: `${bulkProgressPercent}%` },
+                ]}
+              >
+                <LinearGradient
+                  colors={[BRAND.redDark, BRAND.red]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.heroPrimaryButtonFillGradient}
+                />
+              </View>
+            ) : null}
+
+            <View pointerEvents="none" style={styles.heroPrimaryButtonOverlay}>
+              <Text style={styles.heroPrimaryButtonText}>
+                {isBulkDownloading ? `${Math.round(bulkProgressPercent)}%` : pullAllLabel}
+              </Text>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -91,6 +119,9 @@ export function CataloguesScreen({
           <DirectoryCatalogueCard
             key={item.catalogueId}
             pullDisabled={downloadsDisabled}
+            downloadProgressPercent={
+              item.catalogueId === downloadingCatalogueId ? downloadProgressPercent : null
+            }
             isDownloading={item.catalogueId === downloadingCatalogueId}
             item={item}
             onOpenDump={onOpenDump}
@@ -161,6 +192,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  heroPrimaryButtonGhostLabel: {
+    opacity: 0,
+  },
+  heroPrimaryButtonFillClip: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    overflow: "hidden",
+  },
+  heroPrimaryButtonFillGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroPrimaryButtonOverlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
   },

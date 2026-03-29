@@ -778,6 +778,7 @@ function isExpired(endTimestamp: number | null): boolean {
 async function fetchProducts(
   target: CatalogueTarget,
   storeCode: string,
+  onProgress?: (current: number, total: number) => void,
 ): Promise<SearchProduct[]> {
   const firstPage = await requestJson(buildSearchUrl(target, 0, storeCode), {
     method: "POST",
@@ -785,6 +786,7 @@ async function fetchProducts(
   });
 
   const totalPages = Number(firstPage?.pagination?.totalPages ?? 1);
+  onProgress?.(1, totalPages);
   const products = [
     ...(Array.isArray(firstPage?.products) ? firstPage.products : []),
   ];
@@ -797,6 +799,7 @@ async function fetchProducts(
     if (Array.isArray(payload?.products)) {
       products.push(...payload.products);
     }
+    onProgress?.(page + 1, totalPages);
   }
 
   const deduped = new Map<string, SearchProduct>();
@@ -917,6 +920,7 @@ async function fetchProductDetails(
   products: SearchProduct[],
   storeCode: string,
   forceRefresh: boolean,
+  onProgress?: (current: number, total: number) => void,
 ): Promise<Record<string, ProductDetail>> {
   const cache = await loadProductCache();
   const details: Record<string, ProductDetail> = {};
@@ -932,6 +936,10 @@ async function fetchProductDetails(
     }
   }
 
+  const totalBatches = Math.max(1, Math.ceil(pendingCodes.length / 8));
+  onProgress?.(0, totalBatches);
+
+  let completedBatches = 0;
   for (let index = 0; index < pendingCodes.length; index += 8) {
     const batch = pendingCodes.slice(index, index + 8);
     const batchResults = await Promise.all(
@@ -958,6 +966,13 @@ async function fetchProductDetails(
     for (const detail of batchResults) {
       details[detail.code] = detail;
     }
+
+    completedBatches += 1;
+    onProgress?.(completedBatches, totalBatches);
+  }
+
+  if (pendingCodes.length === 0) {
+    onProgress?.(totalBatches, totalBatches);
   }
 
   await saveProductCache(cache);
@@ -1010,12 +1025,21 @@ async function exportTarget(
   storeCode: string,
   forceRefresh: boolean,
   includeDump: boolean,
+  onProgress?: (progress: number) => void,
 ): Promise<ExportOutcome> {
   const manifest = await loadManifestCache();
   const key = catalogueIdForTarget(storeCode, target);
   const existingEntry = manifest.catalogues[key];
 
-  const products = await fetchProducts(target, storeCode);
+  onProgress?.(0);
+
+  const productsPhaseWeight = 0.2;
+  const detailsPhaseWeight = 0.75;
+
+  const products = await fetchProducts(target, storeCode, (current, total) => {
+    const ratio = total > 0 ? current / total : 1;
+    onProgress?.(productsPhaseWeight * ratio);
+  });
   const productCodes = products.map((product) => product.code);
 
   if (
@@ -1026,6 +1050,7 @@ async function exportTarget(
     (await fileExists(existingEntry.csvUri)) &&
     (await fileExists(existingEntry.dumpUri))
   ) {
+    onProgress?.(1);
     return {
       result: {
         catalogueId: key,
@@ -1046,7 +1071,17 @@ async function exportTarget(
     };
   }
 
-  const details = await fetchProductDetails(products, storeCode, forceRefresh);
+  onProgress?.(productsPhaseWeight);
+
+  const details = await fetchProductDetails(
+    products,
+    storeCode,
+    forceRefresh,
+    (current, total) => {
+      const ratio = total > 0 ? current / total : 1;
+      onProgress?.(productsPhaseWeight + detailsPhaseWeight * ratio);
+    },
+  );
   const rows = buildRows(target, products, details);
   const barcodeCount = rows.filter((row) => row.barcodeFound).length;
   const { promotionStartDate, promotionEndDate } = deriveDumpWindow(rows);
@@ -1098,6 +1133,7 @@ async function exportTarget(
     dumpUri: persisted.dumpUri,
   };
   await saveManifestCache(manifest);
+  onProgress?.(1);
 
   return {
     result: {
@@ -1167,8 +1203,9 @@ export async function pullCatalogueTarget(
   target: CatalogueTarget,
   storeCode: string,
   forceRefresh = false,
+  onProgress?: (progress: number) => void,
 ): Promise<{ dump: CatalogueDump; result: SyncItemResult }> {
-  const outcome = await exportTarget(target, storeCode, forceRefresh, true);
+  const outcome = await exportTarget(target, storeCode, forceRefresh, true, onProgress);
   if (!outcome.dump) {
     throw new Error("Catalogue export completed but no dump was available to open.");
   }
@@ -1192,13 +1229,14 @@ export async function scanCatalogue(
   storeCode: string,
   forceRefresh = false,
   label?: string,
+  onProgress?: (progress: number) => void,
 ): Promise<{ dump: CatalogueDump; result: SyncItemResult }> {
   const target = parseCatalogueTarget(source);
   const normalizedLabel = label?.trim();
   if (normalizedLabel) {
     target.label = normalizedLabel;
   }
-  return pullCatalogueTarget(target, storeCode, forceRefresh);
+  return pullCatalogueTarget(target, storeCode, forceRefresh, onProgress);
 }
 
 export async function syncAllMissingCatalogues(
@@ -1210,8 +1248,10 @@ export async function syncAllMissingCatalogues(
   const results: SyncItemResult[] = [];
 
   const totalCount = targets.length;
-  for (const [index, target] of targets.entries()) {
-    onProgress?.(index + 1, totalCount);
+  onProgress?.(0, totalCount);
+  let completed = 0;
+
+  for (const target of targets) {
     try {
       const outcome = await exportTarget(target, storeCode, forceRefresh, false);
       results.push(outcome.result);
@@ -1233,6 +1273,9 @@ export async function syncAllMissingCatalogues(
         message: errorMessage(error),
       });
     }
+
+    completed += 1;
+    onProgress?.(completed, totalCount);
   }
 
   return {
