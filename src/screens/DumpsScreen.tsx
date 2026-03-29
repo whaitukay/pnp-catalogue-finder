@@ -235,8 +235,10 @@ function DumpLibraryCard({
 }
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
-  const hasRawBarcode = Boolean(row.barcode.trim());
-  const normalizedBarcode = React.useMemo(() => normalizeEan(row.barcode), [row.barcode]);
+  const rawBarcode = typeof row.barcode === "string" ? row.barcode : "";
+  const barcodeDigits = rawBarcode.replace(/\D/g, "");
+  const hasBarcodeDigits = barcodeDigits.length > 0;
+  const normalizedBarcode = React.useMemo(() => normalizeEan(barcodeDigits), [barcodeDigits]);
   const [barcodeError, setBarcodeError] = React.useState(false);
   const handleBarcodeError = React.useCallback(() => {
     setBarcodeError(true);
@@ -256,10 +258,10 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
           {row.baseProduct ? (
             <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
           ) : null}
-          {hasRawBarcode && (!normalizedBarcode || barcodeError) ? (
+          {hasBarcodeDigits && (!normalizedBarcode || barcodeError) ? (
             <Text style={sharedStyles.metaText}>Barcode not scannable</Text>
           ) : null}
-          {!hasRawBarcode ? <Text style={sharedStyles.metaText}>Barcode missing</Text> : null}
+          {!hasBarcodeDigits ? <Text style={sharedStyles.metaText}>Barcode missing</Text> : null}
           {row.error ? <Text style={sharedStyles.errorSmall}>{row.error}</Text> : null}
         </View>
         {normalizedBarcode ? (
@@ -338,9 +340,8 @@ function EanBarcode({
 }
 
 function normalizeEan(
-  value: string,
+  digits: string,
 ): { format: "EAN13" | "EAN8"; value: string } | null {
-  const digits = value.replace(/\D/g, "");
   if (digits.length === 13) {
     const body = digits.slice(0, 12);
     const checkDigit = digits[12];
