@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import {
+  Animated,
   Image,
   Linking,
   Modal,
+  PanResponder,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -99,26 +100,12 @@ export function DirectoryCatalogueCard({
                         accessibilityRole="button"
                         accessibilityLabel="Close image preview"
                       />
-                      <ScrollView
-                        style={styles.previewScroll}
-                        contentContainerStyle={styles.previewScrollContent}
-                        minimumZoomScale={1}
-                        maximumZoomScale={4}
-                        showsHorizontalScrollIndicator={false}
-                        showsVerticalScrollIndicator={false}
-                        accessibilityLabel="Image preview"
-                      >
-                        <Image
-                          source={{
-                            uri: item.catalogueImageUrl!,
-                            cache: "force-cache",
-                          }}
-                          style={{ width: viewportWidth, height: viewportHeight }}
-                          resizeMode="contain"
-                          accessibilityRole="image"
-                          accessibilityLabel={`${item.label} thumbnail preview`}
-                        />
-                      </ScrollView>
+                      <ZoomableImage
+                        uri={item.catalogueImageUrl!}
+                        width={viewportWidth}
+                        height={viewportHeight}
+                        accessibilityLabel={`${item.label} thumbnail preview`}
+                      />
                       <Pressable
                         onPress={() => setPreviewVisible(false)}
                         style={styles.previewCloseButton}
@@ -182,6 +169,167 @@ export function DirectoryCatalogueCard({
   );
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function distance(
+  a: { pageX: number; pageY: number },
+  b: { pageX: number; pageY: number },
+): number {
+  const dx = a.pageX - b.pageX;
+  const dy = a.pageY - b.pageY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+type ZoomableImageProps = {
+  uri: string;
+  width: number;
+  height: number;
+  accessibilityLabel: string;
+};
+
+function ZoomableImage({
+  uri,
+  width,
+  height,
+  accessibilityLabel,
+}: ZoomableImageProps): React.ReactElement {
+  const minScale = 1;
+  const maxScale = 4;
+
+  const scale = React.useRef(new Animated.Value(1)).current;
+  const translateX = React.useRef(new Animated.Value(0)).current;
+  const translateY = React.useRef(new Animated.Value(0)).current;
+
+  const currentScale = React.useRef(1);
+  const currentTranslate = React.useRef({ x: 0, y: 0 });
+
+  const pinchStartDistance = React.useRef<number | null>(null);
+  const pinchStartScale = React.useRef(1);
+  const gestureWasPinch = React.useRef(false);
+
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        pinchStartDistance.current = null;
+        pinchStartScale.current = currentScale.current;
+        gestureWasPinch.current = false;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const touches = evt.nativeEvent.touches;
+
+        if (touches.length >= 2) {
+          gestureWasPinch.current = true;
+          const nextDistance = distance(touches[0], touches[1]);
+          if (pinchStartDistance.current == null) {
+            pinchStartDistance.current = nextDistance;
+            pinchStartScale.current = currentScale.current;
+            return;
+          }
+
+          const nextScale = clamp(
+            pinchStartScale.current * (nextDistance / pinchStartDistance.current),
+            minScale,
+            maxScale,
+          );
+
+          scale.setValue(nextScale);
+          currentScale.current = nextScale;
+          return;
+        }
+
+        pinchStartDistance.current = null;
+        if (currentScale.current <= 1.01) {
+          translateX.setValue(0);
+          translateY.setValue(0);
+          currentTranslate.current = { x: 0, y: 0 };
+          return;
+        }
+
+        const maxOffsetX = (width * (currentScale.current - 1)) / 2;
+        const maxOffsetY = (height * (currentScale.current - 1)) / 2;
+
+        const nextX = clamp(
+          currentTranslate.current.x + gestureState.dx,
+          -maxOffsetX,
+          maxOffsetX,
+        );
+        const nextY = clamp(
+          currentTranslate.current.y + gestureState.dy,
+          -maxOffsetY,
+          maxOffsetY,
+        );
+
+        translateX.setValue(nextX);
+        translateY.setValue(nextY);
+      },
+      onPanResponderRelease: (_evt, gestureState) => {
+        if (gestureWasPinch.current) {
+          gestureWasPinch.current = false;
+          pinchStartDistance.current = null;
+          return;
+        }
+
+        if (currentScale.current <= 1.01) {
+          currentScale.current = 1;
+          currentTranslate.current = { x: 0, y: 0 };
+          scale.setValue(1);
+          translateX.setValue(0);
+          translateY.setValue(0);
+          return;
+        }
+
+        const maxOffsetX = (width * (currentScale.current - 1)) / 2;
+        const maxOffsetY = (height * (currentScale.current - 1)) / 2;
+
+        currentTranslate.current = {
+          x: clamp(
+            currentTranslate.current.x + gestureState.dx,
+            -maxOffsetX,
+            maxOffsetX,
+          ),
+          y: clamp(
+            currentTranslate.current.y + gestureState.dy,
+            -maxOffsetY,
+            maxOffsetY,
+          ),
+        };
+
+        translateX.setValue(currentTranslate.current.x);
+        translateY.setValue(currentTranslate.current.y);
+      },
+    }),
+  ).current;
+
+  return (
+    <View style={styles.previewImageContainer}>
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={{
+          width,
+          height,
+          transform: [
+            { translateX },
+            { translateY },
+            { scale },
+          ],
+        }}
+      >
+        <Image
+          source={{ uri, cache: "force-cache" }}
+          style={{ width, height }}
+          resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel={accessibilityLabel}
+        />
+      </Animated.View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
@@ -201,20 +349,13 @@ const styles = StyleSheet.create({
   },
   previewOverlay: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: "rgba(0, 0, 0, 0.92)",
-    padding: 16,
   },
   previewBackdrop: {
     ...StyleSheet.absoluteFillObject,
   },
-  previewScroll: {
+  previewImageContainer: {
     flex: 1,
-    alignSelf: "stretch",
-  },
-  previewScrollContent: {
-    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
   },
