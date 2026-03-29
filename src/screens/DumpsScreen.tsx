@@ -305,7 +305,6 @@ function BarcodeImage({
     />
   );
 }
-
 // Keep this small: `bwipjs.toDataURL()` returns a base64 `data:` URI, which can be memory-heavy.
 const BARCODE_IMAGE_CACHE_LIMIT = 100;
 const barcodeImageCache = new Map<string, bwipjs.DataURL>();
