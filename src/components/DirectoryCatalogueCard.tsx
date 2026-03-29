@@ -11,6 +11,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BRAND, sharedStyles } from "../theme";
 import {
@@ -43,6 +44,7 @@ export function DirectoryCatalogueCard({
   onOpenDump,
 }: DirectoryCatalogueCardProps): React.ReactElement {
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const safeAreaInsets = useSafeAreaInsets();
   const timingStatus = getCatalogueTimingStatus(
     item.promotionStartDate,
     item.promotionEndDate,
@@ -108,7 +110,14 @@ export function DirectoryCatalogueCard({
                       />
                       <Pressable
                         onPress={() => setPreviewVisible(false)}
-                        style={styles.previewCloseButton}
+                        style={[
+                          styles.previewCloseButton,
+                          {
+                            top: safeAreaInsets.top + 16,
+                            right: safeAreaInsets.right + 16,
+                          },
+                        ]}
+                        hitSlop={12}
                         accessibilityRole="button"
                         accessibilityLabel="Close image preview"
                       >
