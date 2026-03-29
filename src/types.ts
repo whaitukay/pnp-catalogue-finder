@@ -139,6 +139,10 @@ export type CatalogueTarget = {
   siteOrder?: number | null;
   catalogueStartDate?: string | null;
   catalogueEndDate?: string | null;
+  // Semantics:
+  // - undefined: keep any existing/cached thumbnail
+  // - string: set/override to this URL
+  // - null: explicitly clear any existing/cached thumbnail
   catalogueImageUrl?: string | null;
 };
 

@@ -77,15 +77,15 @@ export function DirectoryCatalogueCard({
         <View style={sharedStyles.cardHeaderText}>
           <View style={styles.titleRow}>
             {hasThumbnailUrl ? (
-              <>
-                <Pressable
-                  delayLongPress={2000}
-                  onLongPress={() => setPreviewVisible(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${item.label} thumbnail`}
-                  accessibilityHint="Long press to preview full screen"
-                >
-                  {showThumbnail ? (
+              showThumbnail ? (
+                <>
+                  <Pressable
+                    delayLongPress={1000}
+                    onLongPress={() => setPreviewVisible(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.label} thumbnail`}
+                    accessibilityHint="Long press to open full screen preview"
+                  >
                     <Image
                       source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}
                       style={styles.thumbnail}
@@ -95,43 +95,43 @@ export function DirectoryCatalogueCard({
                         setPreviewVisible(false);
                       }}
                     />
-                  ) : (
-                    <View style={styles.thumbnail} />
-                  )}
-                </Pressable>
-                {previewVisible ? (
-                  <Modal
-                    transparent
-                    animationType="fade"
-                    visible
-                    onRequestClose={() => setPreviewVisible(false)}
-                  >
-                    <View style={styles.previewOverlay}>
-                      <Pressable
-                        style={styles.previewBackdrop}
-                        onPress={() => setPreviewVisible(false)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Close image preview"
-                      />
-                      <ZoomableImage
-                        uri={item.catalogueImageUrl!}
-                        width={viewportWidth}
-                        height={viewportHeight}
-                        accessibilityLabel={`${item.label} thumbnail preview`}
-                      />
-                      <Pressable
-                        onPress={() => setPreviewVisible(false)}
-                        style={previewCloseButtonStyle}
-                        hitSlop={12}
-                        accessibilityRole="button"
-                        accessibilityLabel="Close image preview"
-                      >
-                        <Text style={styles.previewCloseButtonText}>X</Text>
-                      </Pressable>
-                    </View>
-                  </Modal>
-                ) : null}
-              </>
+                  </Pressable>
+                  {previewVisible ? (
+                    <Modal
+                      transparent
+                      animationType="fade"
+                      visible
+                      onRequestClose={() => setPreviewVisible(false)}
+                    >
+                      <View style={styles.previewOverlay}>
+                        <Pressable
+                          style={styles.previewBackdrop}
+                          onPress={() => setPreviewVisible(false)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Close image preview"
+                        />
+                        <ZoomableImage
+                          uri={item.catalogueImageUrl!}
+                          width={viewportWidth}
+                          height={viewportHeight}
+                          accessibilityLabel={`${item.label} thumbnail preview`}
+                        />
+                        <Pressable
+                          onPress={() => setPreviewVisible(false)}
+                          style={previewCloseButtonStyle}
+                          hitSlop={12}
+                          accessibilityRole="button"
+                          accessibilityLabel="Close image preview"
+                        >
+                          <Text style={styles.previewCloseButtonText}>X</Text>
+                        </Pressable>
+                      </View>
+                    </Modal>
+                  ) : null}
+                </>
+              ) : (
+                <View style={styles.thumbnail} />
+              )
             ) : null}
             <Text style={[sharedStyles.cardTitle, styles.titleText]}>{item.label}</Text>
           </View>
@@ -224,109 +224,113 @@ function ZoomableImage({
   const gestureWasPinch = React.useRef(false);
   const didPanAfterPinch = React.useRef(false);
 
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        pinchStartDistance.current = null;
-        pinchStartScale.current = currentScale.current;
-        gestureWasPinch.current = false;
-        didPanAfterPinch.current = false;
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const touches = evt.nativeEvent.touches;
+  const panResponder = React.useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          pinchStartDistance.current = null;
+          pinchStartScale.current = currentScale.current;
+          gestureWasPinch.current = false;
+          didPanAfterPinch.current = false;
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          const touches = evt.nativeEvent.touches;
 
-        if (touches.length >= 2) {
-          gestureWasPinch.current = true;
-          const nextDistance = distance(touches[0], touches[1]);
-          if (pinchStartDistance.current == null) {
-            pinchStartDistance.current = nextDistance;
-            pinchStartScale.current = currentScale.current;
+          if (touches.length >= 2) {
+            gestureWasPinch.current = true;
+            const nextDistance = distance(touches[0], touches[1]);
+            if (pinchStartDistance.current == null) {
+              pinchStartDistance.current = nextDistance;
+              pinchStartScale.current = currentScale.current;
+              return;
+            }
+
+            const nextScale = clamp(
+              pinchStartScale.current *
+                (nextDistance / pinchStartDistance.current),
+              minScale,
+              maxScale,
+            );
+
+            scale.setValue(nextScale);
+            currentScale.current = nextScale;
             return;
           }
 
-          const nextScale = clamp(
-            pinchStartScale.current * (nextDistance / pinchStartDistance.current),
-            minScale,
-            maxScale,
-          );
-
-          scale.setValue(nextScale);
-          currentScale.current = nextScale;
-          return;
-        }
-
-        pinchStartDistance.current = null;
-        if (currentScale.current <= 1.01) {
-          translateX.setValue(0);
-          translateY.setValue(0);
-          currentTranslate.current = { x: 0, y: 0 };
-          return;
-        }
-
-        if (gestureWasPinch.current) {
-          didPanAfterPinch.current = true;
-        }
-
-        const maxOffsetX = (width * (currentScale.current - 1)) / 2;
-        const maxOffsetY = (height * (currentScale.current - 1)) / 2;
-
-        const nextX = clamp(
-          currentTranslate.current.x + gestureState.dx,
-          -maxOffsetX,
-          maxOffsetX,
-        );
-        const nextY = clamp(
-          currentTranslate.current.y + gestureState.dy,
-          -maxOffsetY,
-          maxOffsetY,
-        );
-
-        translateX.setValue(nextX);
-        translateY.setValue(nextY);
-      },
-      onPanResponderRelease: (_evt, gestureState) => {
-        if (gestureWasPinch.current && !didPanAfterPinch.current) {
-          gestureWasPinch.current = false;
           pinchStartDistance.current = null;
-          return;
-        }
+          if (currentScale.current <= 1.01) {
+            translateX.setValue(0);
+            translateY.setValue(0);
+            currentTranslate.current = { x: 0, y: 0 };
+            return;
+          }
 
-        gestureWasPinch.current = false;
-        didPanAfterPinch.current = false;
-        pinchStartDistance.current = null;
+          if (gestureWasPinch.current) {
+            didPanAfterPinch.current = true;
+          }
 
-        if (currentScale.current <= 1.01) {
-          currentScale.current = 1;
-          currentTranslate.current = { x: 0, y: 0 };
-          scale.setValue(1);
-          translateX.setValue(0);
-          translateY.setValue(0);
-          return;
-        }
+          const maxOffsetX = (width * (currentScale.current - 1)) / 2;
+          const maxOffsetY = (height * (currentScale.current - 1)) / 2;
 
-        const maxOffsetX = (width * (currentScale.current - 1)) / 2;
-        const maxOffsetY = (height * (currentScale.current - 1)) / 2;
-
-        currentTranslate.current = {
-          x: clamp(
+          const nextX = clamp(
             currentTranslate.current.x + gestureState.dx,
             -maxOffsetX,
             maxOffsetX,
-          ),
-          y: clamp(
+          );
+          const nextY = clamp(
             currentTranslate.current.y + gestureState.dy,
             -maxOffsetY,
             maxOffsetY,
-          ),
-        };
+          );
 
-        translateX.setValue(currentTranslate.current.x);
-        translateY.setValue(currentTranslate.current.y);
-      },
-    }),
-  ).current;
+          translateX.setValue(nextX);
+          translateY.setValue(nextY);
+        },
+        onPanResponderRelease: (_evt, gestureState) => {
+          if (gestureWasPinch.current && !didPanAfterPinch.current) {
+            gestureWasPinch.current = false;
+            pinchStartDistance.current = null;
+            didPanAfterPinch.current = false;
+            return;
+          }
+
+          gestureWasPinch.current = false;
+          didPanAfterPinch.current = false;
+          pinchStartDistance.current = null;
+
+          if (currentScale.current <= 1.01) {
+            currentScale.current = 1;
+            currentTranslate.current = { x: 0, y: 0 };
+            scale.setValue(1);
+            translateX.setValue(0);
+            translateY.setValue(0);
+            return;
+          }
+
+          const maxOffsetX = (width * (currentScale.current - 1)) / 2;
+          const maxOffsetY = (height * (currentScale.current - 1)) / 2;
+
+          currentTranslate.current = {
+            x: clamp(
+              currentTranslate.current.x + gestureState.dx,
+              -maxOffsetX,
+              maxOffsetX,
+            ),
+            y: clamp(
+              currentTranslate.current.y + gestureState.dy,
+              -maxOffsetY,
+              maxOffsetY,
+            ),
+          };
+
+          translateX.setValue(currentTranslate.current.x);
+          translateY.setValue(currentTranslate.current.y);
+        },
+      }),
+    [height, width],
+  );
 
   return (
     <View style={styles.previewImageContainer}>
