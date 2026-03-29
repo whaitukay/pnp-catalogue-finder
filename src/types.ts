@@ -139,6 +139,10 @@ export type CatalogueTarget = {
   siteOrder?: number | null;
   catalogueStartDate?: string | null;
   catalogueEndDate?: string | null;
+  // Semantics:
+  // - undefined: keep any existing/cached thumbnail
+  // - string: set/override to this URL
+  // - null: explicitly clear any existing/cached thumbnail
   catalogueImageUrl?: string | null;
 };
 
@@ -201,6 +205,7 @@ export type ManifestEntry = {
   exportedAt: number;
   sourceUrl: string;
   discoveredFrom: string;
+  catalogueImageUrl: string | null;
   catalogueStartDate: string | null;
   catalogueEndDate: string | null;
   promotionStartDate: string | null;
@@ -218,6 +223,7 @@ export type CatalogueListing = {
   query: string;
   sourceUrl: string;
   discoveredFrom: string;
+  catalogueImageUrl: string | null;
   siteOrder: number | null;
   fromSite: boolean;
   fromCache: boolean;

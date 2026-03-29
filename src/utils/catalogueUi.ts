@@ -7,6 +7,7 @@ import type {
   ProductRow,
 } from "../types";
 import { catalogueIdForTarget } from "../services/pnp";
+import { coalesceCatalogueImageUrl } from "./catalogueImageUrl";
 
 export type DirectoryItem = CatalogueListing & {
   pullSource: string;
@@ -235,6 +236,10 @@ export function buildDirectoryItems(
       query: target.query,
       sourceUrl: target.sourceUrl || cached?.sourceUrl || "",
       discoveredFrom: target.discoveredFrom || cached?.discoveredFrom || "",
+      catalogueImageUrl: coalesceCatalogueImageUrl(
+        target.catalogueImageUrl,
+        cached?.catalogueImageUrl,
+      ),
       siteOrder: target.siteOrder ?? null,
       fromSite: true,
       fromCache: Boolean(cached),
@@ -265,6 +270,7 @@ export function buildDirectoryItems(
       query: cached.query,
       sourceUrl: cached.sourceUrl,
       discoveredFrom: cached.discoveredFrom,
+      catalogueImageUrl: cached.catalogueImageUrl,
       siteOrder: null,
       fromSite: false,
       fromCache: true,

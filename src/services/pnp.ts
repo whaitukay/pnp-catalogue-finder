@@ -9,6 +9,7 @@ import {
   saveManifestCache,
   saveProductCache,
 } from "./catalogueStore";
+import { coalesceCatalogueImageUrl } from "../utils/catalogueImageUrl";
 import type {
   CatalogueDump,
   CatalogueTarget,
@@ -441,6 +442,33 @@ function componentContainsShopLink(component: any): boolean {
 
 function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
   const discovered = new Map<string, CatalogueTarget>();
+
+  function normalizeCatalogueImageUrl(value: unknown): string | undefined {
+    if (typeof value !== "string") {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    if (trimmed.startsWith("//")) {
+      return `https:${trimmed}`;
+    }
+
+    if (trimmed.startsWith("/")) {
+      return absolutizeUrl(trimmed);
+    }
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    // Only accept http(s) and site-relative URLs for thumbnail images. Anything else is treated as
+    // missing so cached values can be preserved.
+    return undefined;
+  }
   const slots = payload?.contentSlots?.contentSlot ?? [];
 
   for (const slot of slots) {
@@ -529,7 +557,7 @@ function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
                 : target.sourceUrl || candidate,
               discoveredFrom: String(componentName),
               siteOrder: discovered.size,
-              catalogueImageUrl: component.media?.url,
+              catalogueImageUrl: normalizeCatalogueImageUrl(component.media?.url),
               catalogueStartDate: validityDates.validityStartDate,
               catalogueEndDate: validityDates.validityEndDate,
             });
@@ -1107,6 +1135,10 @@ async function exportTarget(
     exportedAt: persisted.dump.exportedAt,
     sourceUrl: target.sourceUrl || "",
     discoveredFrom: target.discoveredFrom || "",
+    catalogueImageUrl: coalesceCatalogueImageUrl(
+      target.catalogueImageUrl,
+      existingEntry?.catalogueImageUrl,
+    ),
     catalogueStartDate: target.catalogueStartDate ?? null,
     catalogueEndDate: target.catalogueEndDate ?? null,
     promotionStartDate: persisted.dump.catalogueStartDate,
