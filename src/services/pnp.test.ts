@@ -19,7 +19,7 @@ const catalogueStoreMocks = vi.hoisted(() => {
 
 vi.mock("./catalogueStore", () => catalogueStoreMocks);
 
-import { probeCatalogueWindow, pullCatalogueTarget } from "./pnp";
+import { extractValidityDates, probeCatalogueWindow, pullCatalogueTarget } from "./pnp";
 
 describe("pnp mapper regression coverage", () => {
   beforeEach(() => {
@@ -109,8 +109,8 @@ describe("pnp mapper regression coverage", () => {
     expect(outcome.dump.catalogueId).toBe("WC21:burger-fridays");
     expect(outcome.dump.itemCount).toBe(1);
     expect(outcome.dump.barcodeCount).toBe(1);
-    expect(outcome.dump.catalogueStartDate).toBe(null);
-    expect(outcome.dump.catalogueEndDate).toBe(null);
+    expect(outcome.dump.catalogueStartDate).toBe(Date.parse("2026-03-26T22:00:00.000Z"));
+    expect(outcome.dump.catalogueEndDate).toBe(Date.parse("2026-03-27T21:59:59.000Z"));
     expect(outcome.dump.expired).toBe(false);
 
     expect(outcome.dump.rows).toHaveLength(1);
@@ -126,10 +126,10 @@ describe("pnp mapper regression coverage", () => {
       productUrl: "https://www.pnp.co.za/pnp-beef-burger-400g/p/000000000000886223_EA",
       barcodeFound: true,
       error: "",
-      promotionStartDate: "2026-03-26T22:00:00.000Z",
-      promotionEndDate: "2026-03-27T21:59:59.000Z",
+      promotionStartDate: Date.parse("2026-03-26T22:00:00.000Z"),
+      promotionEndDate: Date.parse("2026-03-27T21:59:59.000Z"),
       promotionRanges:
-        "2026-03-26T22:00:00.000Z -> 2026-03-27T21:59:59.000Z [Combo For R100.00]",
+        "2026-03-27 -> 2026-03-27 [Combo For R100.00]",
     });
   });
 
@@ -170,13 +170,42 @@ describe("pnp mapper regression coverage", () => {
         slug: "burger-fridays",
         label: "burger-fridays",
         query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
-        catalogueStartDate: "2026-03-26T22:00:00.000Z",
-        catalogueEndDate: "2026-03-27T21:59:59.000Z"
       },
       "WC21",
     );
 
-    expect(window.promotionStartDate).toBe("2026-03-26T22:00:00.000Z");
-    expect(window.promotionEndDate).toBe("2026-03-27T21:59:59.000Z");
+    expect(window.promotionStartDate).toBe(Date.parse("2026-03-26T22:00:00.000Z"));
+    expect(window.promotionEndDate).toBe(Date.parse("2026-03-27T21:59:59.000Z"));
+  });
+});
+
+describe("extractValidityDates", () => {
+  it("infers the start year for cross-year ranges when the CMS omits it", () => {
+    const html =
+      '<p class="cat-validity-date">Valid 28 December - 3 January 2026</p>';
+
+    expect(extractValidityDates(html)).toEqual({
+      validityStartDate: "28 December 2025",
+      validityEndDate: "3 January 2026",
+    });
+  });
+
+  it("preserves explicit start year for cross-year ranges", () => {
+    const html =
+      '<p class="cat-validity-date">Valid 28 December 2025 - 3 January 2026</p>';
+
+    expect(extractValidityDates(html)).toEqual({
+      validityStartDate: "28 December 2025",
+      validityEndDate: "3 January 2026",
+    });
+  });
+
+  it("copies the end year onto the start date for same-year ranges", () => {
+    const html = '<p class="cat-validity-date">Valid 26 March - 29 March 2026</p>';
+
+    expect(extractValidityDates(html)).toEqual({
+      validityStartDate: "26 March 2026",
+      validityEndDate: "29 March 2026",
+    });
   });
 });

@@ -9,7 +9,7 @@
       "android": {
         "buildType": "apk"
       },
-      "channel": "develop"
+      "channel": "development"
     },
     "production-apk": {
       "distribution": "internal",

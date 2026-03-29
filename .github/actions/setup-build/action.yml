@@ -14,24 +14,17 @@ runs:
   using: composite
   steps:
     - name: 🏗 Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
-        node-version: "20"
+        node-version: "22"
         cache: "npm"
-
-    - name: 📦 Cache npm
-      uses: actions/cache@v4
-      with:
-        path: ~/.npm
-        key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: ${{ runner.os }}-npm-
 
     - name: 📦 Install dependencies
       shell: bash
       run: npm ci
 
     - name: 📦 Cache EAS CLI
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.npm-global
         key: eas-cli-${{ runner.os }}-${{ inputs.eas-version }}
@@ -50,6 +43,17 @@ runs:
         jq '.main = "node_modules/expo/AppEntry.js"' package.json > package.json.tmp \
           && mv package.json.tmp package.json
 
+    - name: 📦 Cache Gradle
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+          ~/.gradle/build-cache
+        key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          gradle-${{ runner.os }}-
+
     - name: 📋 Configure Gradle JVM args
       if: inputs.configure-gradle == 'true'
       shell: bash
@@ -61,4 +65,5 @@ runs:
         org.gradle.configureondemand=true
         org.gradle.daemon=false
         org.gradle.daemon.idletimeout=60000
+        org.gradle.caching=true
         EOF

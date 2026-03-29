@@ -1,7 +1,7 @@
 export type PromotionWindow = {
   text: string;
-  startDate: string | null;
-  endDate: string | null;
+  startDate: number | null;
+  endDate: number | null;
 };
 
 export type ExportFieldKey =
@@ -137,8 +137,12 @@ export type CatalogueTarget = {
   sourceUrl?: string;
   discoveredFrom?: string;
   siteOrder?: number | null;
-  catalogueStartDate?: string | null;
-  catalogueEndDate?: string | null;
+  catalogueStartDate?: number | null;
+  catalogueEndDate?: number | null;
+  // Semantics:
+  // - undefined: keep any existing/cached thumbnail
+  // - string: set/override to this URL
+  // - null: explicitly clear any existing/cached thumbnail
   catalogueImageUrl?: string | null;
 };
 
@@ -162,8 +166,8 @@ export type ProductRow = {
   barcode: string;
   price: string;
   promotion: string;
-  promotionStartDate: string | null;
-  promotionEndDate: string | null;
+  promotionStartDate: number | null;
+  promotionEndDate: number | null;
   promotionRanges: string;
   promotions: PromotionWindow[];
   productUrl: string;
@@ -182,8 +186,8 @@ export type CatalogueDump = {
   exportedAt: number;
   itemCount: number;
   barcodeCount: number;
-  catalogueStartDate: string | null;
-  catalogueEndDate: string | null;
+  catalogueStartDate: number | null;
+  catalogueEndDate: number | null;
   expired: boolean;
   csvUri: string;
   rows: ProductRow[];
@@ -201,10 +205,11 @@ export type ManifestEntry = {
   exportedAt: number;
   sourceUrl: string;
   discoveredFrom: string;
-  catalogueStartDate: string | null;
-  catalogueEndDate: string | null;
-  promotionStartDate: string | null;
-  promotionEndDate: string | null;
+  catalogueImageUrl: string | null;
+  catalogueStartDate: number | null;
+  catalogueEndDate: number | null;
+  promotionStartDate: number | null;
+  promotionEndDate: number | null;
   expired: boolean;
   csvUri: string;
   dumpUri: string;
@@ -218,16 +223,17 @@ export type CatalogueListing = {
   query: string;
   sourceUrl: string;
   discoveredFrom: string;
+  catalogueImageUrl: string | null;
   siteOrder: number | null;
   fromSite: boolean;
   fromCache: boolean;
   itemCount: number | null;
   barcodeCount: number | null;
   exportedAt: number | null;
-  catalogueStartDate: string | null;
-  catalogueEndDate: string | null;
-  promotionStartDate: string | null;
-  promotionEndDate: string | null;
+  catalogueStartDate: number | null;
+  catalogueEndDate: number | null;
+  promotionStartDate: number | null;
+  promotionEndDate: number | null;
   expired: boolean;
   csvUri: string;
   dumpUri: string;
@@ -252,16 +258,16 @@ export type AppSettings = {
 export type SyncItemResult = {
   catalogueId: string;
   catalogueSlug: string;
-  catalogueStartDate: string | null;
-  catalogueEndDate: string | null;
+  catalogueStartDate: number | null;
+  catalogueEndDate: number | null;
   status: "exported" | "skipped" | "failed";
   itemCount: number;
   barcodesFound: number;
   missingBarcodes: number;
   sourceUrl: string;
   discoveredFrom: string;
-  promotionStartDate: string | null;
-  promotionEndDate: string | null;
+  promotionStartDate: number | null;
+  promotionEndDate: number | null;
   expired: boolean;
   message?: string;
 };
