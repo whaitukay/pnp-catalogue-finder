@@ -2,19 +2,13 @@ name: React Native CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths-ignore:
       - "**.md"
       - "LICENSE"
       - "docs/**"
   pull_request:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      bumpVersion:
-        type: boolean
-        description: "Bump version number after build?"
-        default: false
+    branches: [main, dev]
 
 permissions:
   contents: read
@@ -48,8 +42,10 @@ jobs:
       - name: 🧪 Run TypeScript check
         run: npx tsc
 
+  # Runs on pushes to dev branch only
   build-dev:
     needs: test
+    if: github.event_name == 'push' && github.ref_name == 'dev'
     timeout-minutes: 45
     runs-on: ubuntu-latest
     permissions:
@@ -94,7 +90,7 @@ jobs:
       - name: 🚀 Publish to Expo
         run: |
           export PATH=~/.npm-global/bin:$PATH
-          eas update --channel develop --message "Dev ${{ steps.current_version.outputs.version }} — ${{ github.sha }}" --platform android
+          eas update --channel development --message "Dev ${{ steps.current_version.outputs.version }} — ${{ github.sha }}" --platform android
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
@@ -105,8 +101,10 @@ jobs:
           path: ./app-dev.apk
           retention-days: 7
 
+  # Runs on pushes to main branch only
   build-prod:
-    if: github.event_name == 'workflow_dispatch'
+    needs: test
+    if: github.event_name == 'push' && github.ref_name == 'main'
     timeout-minutes: 45
     runs-on: ubuntu-latest
     permissions:
@@ -162,8 +160,21 @@ jobs:
           path: ./app-prod.apk
           retention-days: 7
 
+      - name: 🏷 Tag release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG="v${{ steps.current_version.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::warning::Tag $TAG already exists, skipping tag creation"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 📋 Bump version numbers
-        if: github.event.inputs.bumpVersion == 'true'
         id: bump_version
         run: |
           CURRENT_VERSION=$(jq -r '.expo.version' app.json)
@@ -176,7 +187,6 @@ jobs:
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: 📋 Commit version bump
-        if: github.event.inputs.bumpVersion == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
