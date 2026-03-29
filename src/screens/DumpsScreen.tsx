@@ -191,6 +191,8 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
           {row.baseProduct ? (
             <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
           ) : null}
+          {row.price ? <Text style={sharedStyles.metaText}>Price: {row.price}</Text> : null}
+          {row.promotion ? <Text style={sharedStyles.bodyText}>{row.promotion}</Text> : null}
           {hasBarcodeDigits && (!normalizedBarcode || barcodeError) ? (
             <Text style={sharedStyles.metaText}>Barcode not scannable</Text>
           ) : null}
