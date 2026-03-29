@@ -77,11 +77,10 @@ export function DirectoryCatalogueCard({
               showThumbnail ? (
                 <>
                   <Pressable
-                    delayLongPress={1000}
-                    onLongPress={() => setPreviewVisible(true)}
+                    onPress={() => setPreviewVisible(true)}
                     accessibilityRole="button"
                     accessibilityLabel={`${item.label} thumbnail`}
-                    accessibilityHint="Long press to open full screen preview"
+                    accessibilityHint="Tap to open full screen preview"
                   >
                     <Image
                       source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}
@@ -184,13 +183,37 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function distance(
-  a: { pageX: number; pageY: number },
-  b: { pageX: number; pageY: number },
-): number {
-  const dx = a.pageX - b.pageX;
-  const dy = a.pageY - b.pageY;
-  return Math.sqrt(dx * dx + dy * dy);
+type TouchPoint = {
+  pageX?: number;
+  pageY?: number;
+  locationX?: number;
+  locationY?: number;
+};
+
+function touchDistance(a: TouchPoint, b: TouchPoint): number | null {
+  if (
+    typeof a.pageX === "number" &&
+    typeof a.pageY === "number" &&
+    typeof b.pageX === "number" &&
+    typeof b.pageY === "number"
+  ) {
+    const dx = a.pageX - b.pageX;
+    const dy = a.pageY - b.pageY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  if (
+    typeof a.locationX === "number" &&
+    typeof a.locationY === "number" &&
+    typeof b.locationX === "number" &&
+    typeof b.locationY === "number"
+  ) {
+    const dx = a.locationX - b.locationX;
+    const dy = a.locationY - b.locationY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  return null;
 }
 
 type ZoomableImageProps = {
@@ -225,7 +248,10 @@ function ZoomableImage({
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: () => {
           pinchStartDistance.current = null;
           pinchStartScale.current = currentScale.current;
@@ -233,11 +259,17 @@ function ZoomableImage({
           didPanAfterPinch.current = false;
         },
         onPanResponderMove: (evt, gestureState) => {
-          const touches = evt.nativeEvent.touches;
+          const touches =
+            evt.nativeEvent.touches.length >= 2
+              ? evt.nativeEvent.touches
+              : evt.nativeEvent.changedTouches;
 
           if (touches.length >= 2) {
             gestureWasPinch.current = true;
-            const nextDistance = distance(touches[0], touches[1]);
+            const nextDistance = touchDistance(touches[0], touches[1]);
+            if (nextDistance == null || nextDistance <= 0) {
+              return;
+            }
             if (pinchStartDistance.current == null) {
               pinchStartDistance.current = nextDistance;
               pinchStartScale.current = currentScale.current;
