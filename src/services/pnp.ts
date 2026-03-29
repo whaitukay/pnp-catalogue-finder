@@ -409,7 +409,15 @@ function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
       return `https:${trimmed}`;
     }
 
-    return trimmed.startsWith("/") ? absolutizeUrl(trimmed) : trimmed;
+    if (trimmed.startsWith("/")) {
+      return absolutizeUrl(trimmed);
+    }
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    return undefined;
   }
   const slots = payload?.contentSlots?.contentSlot ?? [];
 

@@ -68,11 +68,11 @@ export function DirectoryCatalogueCard({
             {hasThumbnailUrl ? (
               <>
                 <Pressable
-                  delayLongPress={1000}
+                  delayLongPress={2000}
                   onLongPress={() => setPreviewVisible(true)}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.label} thumbnail`}
-                  accessibilityHint="Long press to open full screen preview"
+                  accessibilityHint="Long press to preview full screen"
                 >
                   {showThumbnail ? (
                     <Image
@@ -374,6 +374,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
   },
   previewCloseButton: {
     position: "absolute",
