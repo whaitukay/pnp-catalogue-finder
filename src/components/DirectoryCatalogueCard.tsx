@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Animated,
   Image,
@@ -60,16 +60,13 @@ export function DirectoryCatalogueCard({
     setPreviewVisible(false);
   }, [item.catalogueImageUrl]);
 
-  const previewCloseButtonStyle = useMemo(
-    () => [
-      styles.previewCloseButton,
-      {
-        top: safeAreaInsets.top + 16,
-        right: safeAreaInsets.right + 16,
-      },
-    ],
-    [safeAreaInsets.right, safeAreaInsets.top],
-  );
+  const previewCloseButtonStyle = [
+    styles.previewCloseButton,
+    {
+      top: safeAreaInsets.top + 16,
+      right: safeAreaInsets.right + 16,
+    },
+  ];
 
   return (
     <View style={sharedStyles.card}>
