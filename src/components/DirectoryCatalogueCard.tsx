@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   Linking,
@@ -48,6 +48,10 @@ export function DirectoryCatalogueCard({
 
   const canShowThumbnail = Boolean(item.catalogueImageUrl) && !thumbnailLoadFailed;
 
+  useEffect(() => {
+    setThumbnailLoadFailed(false);
+  }, [item.catalogueImageUrl]);
+
   return (
     <View style={sharedStyles.card}>
       <View style={sharedStyles.cardHeaderRow}>
@@ -78,6 +82,8 @@ export function DirectoryCatalogueCard({
                   <Pressable
                     style={styles.previewOverlay}
                     onPress={() => setPreviewVisible(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close image preview"
                   >
                     <Image
                       source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}

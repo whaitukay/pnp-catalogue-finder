@@ -236,7 +236,7 @@ export function buildDirectoryItems(
       sourceUrl: target.sourceUrl || cached?.sourceUrl || "",
       discoveredFrom: target.discoveredFrom || cached?.discoveredFrom || "",
       catalogueImageUrl:
-        target.catalogueImageUrl === undefined
+        target.catalogueImageUrl == null
           ? cached?.catalogueImageUrl ?? null
           : target.catalogueImageUrl,
       siteOrder: target.siteOrder ?? null,

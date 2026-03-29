@@ -395,14 +395,14 @@ function componentContainsShopLink(component: any): boolean {
 function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
   const discovered = new Map<string, CatalogueTarget>();
 
-  function normalizeCatalogueImageUrl(value: unknown): string | undefined {
+  function normalizeCatalogueImageUrl(value: unknown): string | null {
     if (typeof value !== "string") {
-      return undefined;
+      return null;
     }
 
     const trimmed = value.trim();
     if (!trimmed) {
-      return undefined;
+      return null;
     }
 
     if (trimmed.startsWith("//")) {
@@ -1078,7 +1078,7 @@ async function exportTarget(
     sourceUrl: target.sourceUrl || "",
     discoveredFrom: target.discoveredFrom || "",
     catalogueImageUrl:
-      target.catalogueImageUrl === undefined
+      target.catalogueImageUrl == null
         ? existingEntry?.catalogueImageUrl ?? null
         : target.catalogueImageUrl,
     catalogueStartDate: target.catalogueStartDate ?? null,
