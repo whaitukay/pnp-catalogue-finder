@@ -235,6 +235,10 @@ export function buildDirectoryItems(
       query: target.query,
       sourceUrl: target.sourceUrl || cached?.sourceUrl || "",
       discoveredFrom: target.discoveredFrom || cached?.discoveredFrom || "",
+      catalogueImageUrl:
+        target.catalogueImageUrl === undefined
+          ? cached?.catalogueImageUrl ?? null
+          : target.catalogueImageUrl,
       siteOrder: target.siteOrder ?? null,
       fromSite: true,
       fromCache: Boolean(cached),
@@ -265,6 +269,7 @@ export function buildDirectoryItems(
       query: cached.query,
       sourceUrl: cached.sourceUrl,
       discoveredFrom: cached.discoveredFrom,
+      catalogueImageUrl: cached.catalogueImageUrl,
       siteOrder: null,
       fromSite: false,
       fromCache: true,

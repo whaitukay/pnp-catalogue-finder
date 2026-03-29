@@ -201,6 +201,7 @@ export type ManifestEntry = {
   exportedAt: number;
   sourceUrl: string;
   discoveredFrom: string;
+  catalogueImageUrl: string | null;
   catalogueStartDate: string | null;
   catalogueEndDate: string | null;
   promotionStartDate: string | null;
@@ -218,6 +219,7 @@ export type CatalogueListing = {
   query: string;
   sourceUrl: string;
   discoveredFrom: string;
+  catalogueImageUrl: string | null;
   siteOrder: number | null;
   fromSite: boolean;
   fromCache: boolean;

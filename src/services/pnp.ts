@@ -482,7 +482,8 @@ function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
                 : target.sourceUrl || candidate,
               discoveredFrom: String(componentName),
               siteOrder: discovered.size,
-              catalogueImageUrl: component.media?.url,
+              catalogueImageUrl:
+                typeof component.media?.url === "string" ? component.media.url : null,
               catalogueStartDate: validityDates.validityStartDate,
               catalogueEndDate: validityDates.validityEndDate,
             });
@@ -1060,6 +1061,10 @@ async function exportTarget(
     exportedAt: persisted.dump.exportedAt,
     sourceUrl: target.sourceUrl || "",
     discoveredFrom: target.discoveredFrom || "",
+    catalogueImageUrl:
+      target.catalogueImageUrl === undefined
+        ? existingEntry?.catalogueImageUrl ?? null
+        : target.catalogueImageUrl,
     catalogueStartDate: target.catalogueStartDate ?? null,
     catalogueEndDate: target.catalogueEndDate ?? null,
     promotionStartDate: persisted.dump.catalogueStartDate,

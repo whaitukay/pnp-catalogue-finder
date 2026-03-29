@@ -1,7 +1,7 @@
 import React from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { sharedStyles } from "../theme";
+import { BRAND, sharedStyles } from "../theme";
 import {
   formatDateStampRange,
   getCatalogueTimingStatus,
@@ -40,7 +40,16 @@ export function DirectoryCatalogueCard({
     <View style={sharedStyles.card}>
       <View style={sharedStyles.cardHeaderRow}>
         <View style={sharedStyles.cardHeaderText}>
-          <Text style={sharedStyles.cardTitle}>{item.label}</Text>
+          <View style={styles.titleRow}>
+            {item.catalogueImageUrl ? (
+              <Image
+                source={{ uri: item.catalogueImageUrl }}
+                style={styles.thumbnail}
+                resizeMode="cover"
+              />
+            ) : null}
+            <Text style={[sharedStyles.cardTitle, styles.titleText]}>{item.label}</Text>
+          </View>
         </View>
         <View style={styles.badges}>
           {item.fromSite ? <StatusBadge label="Live" variant="primary" /> : null}
@@ -90,6 +99,22 @@ export function DirectoryCatalogueCard({
 }
 
 const styles = StyleSheet.create({
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  titleText: {
+    flexShrink: 1,
+  },
+  thumbnail: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BRAND.border,
+    backgroundColor: BRAND.blueSoft,
+  },
   badges: {
     flexDirection: "row",
     flexWrap: "wrap",
