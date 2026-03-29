@@ -6,7 +6,7 @@
 [![Latest release](https://img.shields.io/github/v/release/whaitukay/pnp-catalogue-finder?display_name=tag&sort=semver)](https://github.com/whaitukay/pnp-catalogue-finder/releases)
 [![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/whaitukay/pnp-catalogue-finder?utm_source=oss&utm_medium=github&utm_campaign=whaitukay%2Fpnp-catalogue-finder&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 
-An Expo (React Native) Android app that helps extract Pick n Pay online promotion catalogues into a shareable CSV.
+An Expo (React Native) app that helps extract Pick n Pay online promotion catalogues into a shareable CSV (Android-first; web tooling included).
 
 The app discovers catalogue categories on `pnp.co.za`, pulls the products for each catalogue, caches the raw dump + derived CSV on-device, and lets you share/export those CSVs (email/share sheet).
 
@@ -43,7 +43,7 @@ npm start
 Then either:
 
 - Open the app in Expo Go (scan the QR code), or
-- Build and install the dev client on Android:
+- Build and install the dev client on Android (run in a second terminal):
 
 ```bash
 npm run android
@@ -58,7 +58,7 @@ All scripts live in `package.json`:
 - `npm run android`: build and run the app on Android (requires local Android SDK)
 - `npm run android:clear`: start Expo dev server + clear cache and open Android
 - `npm run web`: run the web build
-- `npm run prebuild:clean`: regenerate native projects from the Expo config
+- `npm run prebuild:clean`: regenerate native projects from the Expo config (**overwrites `android/` + `ios/`**)
 - `npm test`: run unit tests (Vitest)
 
 ## Project layout
