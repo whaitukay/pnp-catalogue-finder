@@ -191,39 +191,29 @@ type TouchPoint = {
 };
 
 function touchDistance(a: TouchPoint, b: TouchPoint): number | null {
-  const hasPage =
+  if (
     typeof a.pageX === "number" &&
     typeof a.pageY === "number" &&
     typeof b.pageX === "number" &&
-    typeof b.pageY === "number";
+    typeof b.pageY === "number"
+  ) {
+    const dx = a.pageX - b.pageX;
+    const dy = a.pageY - b.pageY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
 
-  const hasLocation =
+  if (
     typeof a.locationX === "number" &&
     typeof a.locationY === "number" &&
     typeof b.locationX === "number" &&
-    typeof b.locationY === "number";
-
-  if (!hasPage && !hasLocation) {
-    return null;
-  }
-
-  const ax = hasPage ? a.pageX : a.locationX;
-  const ay = hasPage ? a.pageY : a.locationY;
-  const bx = hasPage ? b.pageX : b.locationX;
-  const by = hasPage ? b.pageY : b.locationY;
-
-  if (
-    typeof ax !== "number" ||
-    typeof ay !== "number" ||
-    typeof bx !== "number" ||
-    typeof by !== "number"
+    typeof b.locationY === "number"
   ) {
-    return null;
+    const dx = a.locationX - b.locationX;
+    const dy = a.locationY - b.locationY;
+    return Math.sqrt(dx * dx + dy * dy);
   }
 
-  const dx = ax - bx;
-  const dy = ay - by;
-  return Math.sqrt(dx * dx + dy * dy);
+  return null;
 }
 
 type ZoomableImageProps = {
