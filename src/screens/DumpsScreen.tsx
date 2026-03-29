@@ -251,11 +251,11 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
 
   return (
     <View style={sharedStyles.card}>
+      <Text numberOfLines={2} style={sharedStyles.cardTitle}>
+        {row.name || row.productCode}
+      </Text>
       <View style={styles.dumpRowCardRow}>
         <View style={styles.dumpRowCardDetails}>
-          <Text numberOfLines={2} style={sharedStyles.cardTitle}>
-            {row.name || row.productCode}
-          </Text>
           {row.baseProduct ? (
             <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
           ) : null}
