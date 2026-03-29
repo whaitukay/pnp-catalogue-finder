@@ -72,7 +72,9 @@ All scripts live in `package.json`:
 
 ## Data storage
 
-All cache/dump/export files are stored under the app's Expo document directory:
+All cache/dump/export files are stored under the app's Expo document directory.
+
+The directory prefix is currently `catalogue-helper/` (legacy name kept for compatibility).
 
 - Root: `catalogue-helper/`
 - Dumps: `catalogue-helper/dumps/`
