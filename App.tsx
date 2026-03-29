@@ -76,9 +76,8 @@ function errorMessage(error: unknown): string {
  */
 export default function App(): React.ReactElement {
   const colorScheme = useColorScheme();
-  const safeAreaBackground = useMemo(() => {
-    return colorScheme === "dark" ? BRAND.backgroundDark : BRAND.background;
-  }, [colorScheme]);
+  const safeAreaBackground =
+    colorScheme === "dark" ? BRAND.backgroundDark : BRAND.background;
 
   const safeAreaStyle = useMemo(() => {
     return [styles.safeArea, { backgroundColor: safeAreaBackground }];
