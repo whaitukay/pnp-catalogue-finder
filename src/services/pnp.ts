@@ -1,3 +1,5 @@
+import { parse } from "node-html-parser";
+import he from "he";
 import {
   fileExists,
   loadDumpByUri,
@@ -16,6 +18,7 @@ import type {
   SyncItemResult,
   SyncSummary,
 } from "../types";
+
 
 const BASE_URL = "https://www.pnp.co.za";
 const SEARCH_ENDPOINT = `${BASE_URL}/pnphybris/v2/pnp-spa/products/search`;
@@ -300,43 +303,39 @@ function absolutizeUrl(value: string): string {
 }
 
 function decodeHtml(value: string): string {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+  return he.decode(value);
 }
 
 function extractLinksFromHtml(content: string): string[] {
-  const decoded = decodeHtml(content);
-  return Array.from(decoded.matchAll(/href=["']([^"']+)["']/gi), (match) => match[1]);
+  const root = parse(he.decode(content));
+  return root.querySelectorAll("a[href]").map((el) => el.getAttribute("href")!);
 }
 
 function extractTitle(content: string): string | null {
-  const decoded = decodeHtml(content);
-  // <h2>Pick n Pay Weekend Specials</h2>
-  const match = decoded?.match(/<h2>(.+)<\/h2>/);
-  if (match) {
-    return match[1]
-  }
-  return null
+  const root = parse(he.decode(content));
+  return root.querySelector("h2")?.textContent?.trim() ?? null;
 }
-
 /**
  * TODO: Infer the start year for cross-year validity ranges.
- * When the CMS omits the first year, this always copies the end year onto the start date. 
+ * When the CMS omits the first year, this always copies the end year onto the start date.
  * A range like Valid 28 December - 3 January 2026 is therefore recorded as starting in December 2026 instead of December 2025.
  */
 function extractValidityDates(content: string): { validityStartDate: string | null; validityEndDate: string | null } {
-  const decoded = decodeHtml(content);
-  /*<p class="cat-validity-date">Valid 26 March - 29 March 2026</p>*/
+  const root = parse(he.decode(content));
+
+  const el = root.querySelector("p.cat-validity-date");
+  const text = el?.innerText?.trim() ?? "";
+
   const regex = /Valid (\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/;
-  const match = decoded?.match(regex);
+  const match = text.match(regex);
+
   if (match) {
-    return { validityStartDate: `${match[1]} ${match[2]} ${match[3] ?? match[6]}`, validityEndDate: `${match[4]} ${match[5]} ${match[6]}` };
+    return {
+      validityStartDate: `${match[1]} ${match[2]} ${match[3] ?? match[6]}`,
+      validityEndDate: `${match[4]} ${match[5]} ${match[6]}`,
+    };
   }
+
   return { validityStartDate: null, validityEndDate: null };
 }
 
