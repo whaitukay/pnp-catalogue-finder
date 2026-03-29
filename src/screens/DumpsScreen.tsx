@@ -97,8 +97,8 @@ export function DumpsScreen({
   const handleSearchFocus = React.useCallback(() => {
     animateLayout();
     setIsSearchFocused(true);
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, [animateLayout]);
+    scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotionEnabled });
+  }, [animateLayout, reduceMotionEnabled]);
 
   const handleSearchBlur = React.useCallback(() => {
     animateLayout();
