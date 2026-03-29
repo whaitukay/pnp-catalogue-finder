@@ -167,7 +167,9 @@ export function DirectoryCatalogueCard({
         {item.sourceUrl ? (
           <Pressable
             onPress={() => {
-              void Linking.openURL(item.sourceUrl);
+              void Linking.openURL(item.sourceUrl).catch((error: unknown) => {
+                console.warn("Failed to open catalogue URL", error);
+              });
             }}
             style={styles.linkButton}
           >
