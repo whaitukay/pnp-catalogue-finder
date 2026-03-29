@@ -195,6 +195,11 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
       </Text>
       <View style={styles.dumpRowCardRow}>
         <View style={styles.dumpRowCardDetails}>
+          {hasBarcodeDigits ? (
+            <Text style={sharedStyles.metaText}>
+              Barcode: {normalizedBarcode?.value ?? barcodeDigits}
+            </Text>
+          ) : null}
           {row.baseProduct ? (
             <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
           ) : null}
