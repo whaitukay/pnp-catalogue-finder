@@ -76,12 +76,8 @@ function errorMessage(error: unknown): string {
  */
 export default function App(): React.ReactElement {
   const colorScheme = useColorScheme();
-  const safeAreaBackground =
-    colorScheme === "dark" ? BRAND.backgroundDark : BRAND.background;
-
-  const safeAreaStyle = useMemo(() => {
-    return [styles.safeArea, { backgroundColor: safeAreaBackground }];
-  }, [safeAreaBackground]);
+  const safeAreaInsetStyle =
+    colorScheme === "dark" ? styles.safeAreaDark : styles.safeAreaLight;
 
   const [activeTab, setActiveTab] = useState<TabKey>("catalogues");
   const [storeCode, setStoreCode] = useState(DEFAULT_SETTINGS.storeCode);
@@ -449,7 +445,10 @@ export default function App(): React.ReactElement {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView edges={["top", "bottom", "left", "right"]} style={safeAreaStyle}>
+      <SafeAreaView
+        edges={["top", "bottom", "left", "right"]}
+        style={[styles.safeArea, safeAreaInsetStyle]}
+      >
         <StatusBar style="auto" />
         <View style={styles.appShell}>
           <View style={styles.headerBlock}>
@@ -569,6 +568,12 @@ export default function App(): React.ReactElement {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  safeAreaLight: {
+    backgroundColor: BRAND.background,
+  },
+  safeAreaDark: {
+    backgroundColor: BRAND.backgroundDark,
   },
   appShell: {
     flex: 1,
