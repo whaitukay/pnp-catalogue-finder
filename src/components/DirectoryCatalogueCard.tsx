@@ -191,10 +191,26 @@ type TouchPoint = {
 };
 
 function touchDistance(a: TouchPoint, b: TouchPoint): number | null {
-  const ax = typeof a.pageX === "number" ? a.pageX : a.locationX;
-  const ay = typeof a.pageY === "number" ? a.pageY : a.locationY;
-  const bx = typeof b.pageX === "number" ? b.pageX : b.locationX;
-  const by = typeof b.pageY === "number" ? b.pageY : b.locationY;
+  const hasPage =
+    typeof a.pageX === "number" &&
+    typeof a.pageY === "number" &&
+    typeof b.pageX === "number" &&
+    typeof b.pageY === "number";
+
+  const hasLocation =
+    typeof a.locationX === "number" &&
+    typeof a.locationY === "number" &&
+    typeof b.locationX === "number" &&
+    typeof b.locationY === "number";
+
+  if (!hasPage && !hasLocation) {
+    return null;
+  }
+
+  const ax = hasPage ? a.pageX : a.locationX;
+  const ay = hasPage ? a.pageY : a.locationY;
+  const bx = hasPage ? b.pageX : b.locationX;
+  const by = hasPage ? b.pageY : b.locationY;
 
   if (
     typeof ax !== "number" ||
