@@ -2,7 +2,7 @@
   "expo": {
     "name": "Catalogue Finder",
     "slug": "catalogue-finder-mobile",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "orientation": "portrait",
     "platforms": [
       "android"
