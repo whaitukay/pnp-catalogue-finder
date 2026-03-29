@@ -109,6 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v6
@@ -181,18 +182,27 @@ jobs:
           CURRENT_VERSION_CODE=$(jq -r '.expo.android.versionCode' app.json)
           NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1; print}' OFS=.)
           NEW_VERSION_CODE=$((CURRENT_VERSION_CODE + 1))
-          jq --arg v "$NEW_VERSION" --argjson vc "$NEW_VERSION_CODE" \
-            '.expo.version = $v | .expo.android.versionCode = $vc' \
-            app.json > app.json.tmp && mv app.json.tmp app.json
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "versionCode=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
 
-      - name: 📋 Commit version bump
+      - name: 📋 Open version bump PR to dev
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin dev
+          git checkout -b chore/bump-version-${{ steps.bump_version.outputs.version }} origin/dev
+          jq --arg v "${{ steps.bump_version.outputs.version }}" \
+             --argjson vc ${{ steps.bump_version.outputs.versionCode }} \
+             '.expo.version = $v | .expo.android.versionCode = $vc' \
+             app.json > app.json.tmp && mv app.json.tmp app.json
           git add app.json
           git commit -m "chore: bump version to ${{ steps.bump_version.outputs.version }} [skip ci]"
-          git pull --rebase origin main
-          git push
+          git push origin chore/bump-version-${{ steps.bump_version.outputs.version }}
+          gh pr create \
+            --title "chore: bump version to ${{ steps.bump_version.outputs.version }}" \
+            --body "Automated version bump after release ${{ steps.bump_version.outputs.version }}." \
+            --base dev \
+            --head chore/bump-version-${{ steps.bump_version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
