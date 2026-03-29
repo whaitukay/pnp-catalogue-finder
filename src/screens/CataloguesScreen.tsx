@@ -8,6 +8,7 @@ import { BRAND, sharedStyles } from "../theme";
 import type { SyncSummary } from "../types";
 import type { DirectoryItem } from "../utils/catalogueUi";
 import { formatDateRange } from "../utils/catalogueUi";
+import { clampPercent } from "../utils/progressUi";
 
 type CataloguesScreenProps = {
   downloadingCatalogueId: string | null;
@@ -50,7 +51,7 @@ export function CataloguesScreen({
 }: CataloguesScreenProps): React.ReactElement {
   const downloadsDisabled = Boolean(downloadingCatalogueId) || isBulkDownloading;
   const pullAllLabel = "Download all";
-  const bulkProgressPercent = Math.max(0, Math.min(bulkDownloadProgressPercent ?? 0, 100));
+  const bulkProgressPercent = clampPercent(bulkDownloadProgressPercent);
 
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>

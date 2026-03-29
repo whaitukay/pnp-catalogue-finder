@@ -83,6 +83,9 @@ type ExportOutcome = {
   dump: CatalogueDump | null;
 };
 
+type FractionalProgress = (progress: number) => void;
+type CountProgress = (current: number, total: number) => void;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -778,7 +781,7 @@ function isExpired(endTimestamp: number | null): boolean {
 async function fetchProducts(
   target: CatalogueTarget,
   storeCode: string,
-  onProgress?: (current: number, total: number) => void,
+  onProgress?: CountProgress,
 ): Promise<SearchProduct[]> {
   const firstPage = await requestJson(buildSearchUrl(target, 0, storeCode), {
     method: "POST",
@@ -920,7 +923,7 @@ async function fetchProductDetails(
   products: SearchProduct[],
   storeCode: string,
   forceRefresh: boolean,
-  onProgress?: (current: number, total: number) => void,
+  onProgress?: CountProgress,
 ): Promise<Record<string, ProductDetail>> {
   const cache = await loadProductCache();
   const details: Record<string, ProductDetail> = {};
@@ -1025,7 +1028,7 @@ async function exportTarget(
   storeCode: string,
   forceRefresh: boolean,
   includeDump: boolean,
-  onProgress?: (progress: number) => void,
+  onProgress?: FractionalProgress,
 ): Promise<ExportOutcome> {
   const manifest = await loadManifestCache();
   const key = catalogueIdForTarget(storeCode, target);
@@ -1201,7 +1204,7 @@ export async function pullCatalogueTarget(
   target: CatalogueTarget,
   storeCode: string,
   forceRefresh = false,
-  onProgress?: (progress: number) => void,
+  onProgress?: FractionalProgress,
 ): Promise<{ dump: CatalogueDump; result: SyncItemResult }> {
   const outcome = await exportTarget(target, storeCode, forceRefresh, true, onProgress);
   if (!outcome.dump) {
@@ -1227,7 +1230,7 @@ export async function scanCatalogue(
   storeCode: string,
   forceRefresh = false,
   label?: string,
-  onProgress?: (progress: number) => void,
+  onProgress?: FractionalProgress,
 ): Promise<{ dump: CatalogueDump; result: SyncItemResult }> {
   const target = parseCatalogueTarget(source);
   const normalizedLabel = label?.trim();
@@ -1240,12 +1243,21 @@ export async function scanCatalogue(
 export async function syncAllMissingCatalogues(
   storeCode: string,
   forceRefresh = false,
-  onProgress?: (current: number, total: number) => void,
+  onProgress?: CountProgress,
 ): Promise<SyncSummary> {
   const targets = await discoverCatalogueTargets();
   const results: SyncItemResult[] = [];
 
   const totalCount = targets.length;
+  if (totalCount === 0) {
+    return {
+      results,
+      exportedCount: 0,
+      skippedCount: 0,
+      failedCount: 0,
+    };
+  }
+
   onProgress?.(0, totalCount);
   let completed = 0;
 

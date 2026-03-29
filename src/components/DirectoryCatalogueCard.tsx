@@ -20,6 +20,7 @@ import {
   getCatalogueTimingStatus,
 } from "../utils/catalogueUi";
 import type { DirectoryItem } from "../utils/catalogueUi";
+import { clampPercent } from "../utils/progressUi";
 import { StatusBadge } from "./StatusBadge";
 
 type DirectoryCatalogueCardProps = {
@@ -65,7 +66,7 @@ export function DirectoryCatalogueCard({
   const hasThumbnailUrl = Boolean(item.catalogueImageUrl);
   const showThumbnail = hasThumbnailUrl && !thumbnailLoadFailed;
   const pullButtonLabel = item.fromCache ? "Refresh" : "Download";
-  const progressPercent = clamp(downloadProgressPercent ?? 0, 0, 100);
+  const progressPercent = clampPercent(downloadProgressPercent);
 
   useEffect(() => {
     setThumbnailLoadFailed(false);
