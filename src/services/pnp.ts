@@ -10,6 +10,10 @@ import {
   saveProductCache,
 } from "./catalogueStore";
 import { coalesceCatalogueImageUrl } from "../utils/catalogueImageUrl";
+import {
+  formatDateYyyyMmDd,
+  parseDateTimestamp,
+} from "../utils/dateUtils";
 import type {
   CatalogueDump,
   CatalogueTarget,
@@ -68,8 +72,8 @@ type SearchProduct = {
   price: string;
   url: string;
   promotion: string;
-  promotionStartDate: string | null;
-  promotionEndDate: string | null;
+  promotionStartDate: number | null;
+  promotionEndDate: number | null;
   promotionRanges: string;
   promotions: PromotionWindow[];
 };
@@ -545,6 +549,9 @@ function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
             ? extractValidityDates(content)
             : { validityStartDate: null, validityEndDate: null };
 
+          const catalogueStartDate = parseDateTimestamp(validityDates.validityStartDate);
+          const catalogueEndDate = parseDateTimestamp(validityDates.validityEndDate, { endOfDay: true });
+
           if (title) {
             target.label = title
           }
@@ -558,8 +565,8 @@ function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
               discoveredFrom: String(componentName),
               siteOrder: discovered.size,
               catalogueImageUrl: normalizeCatalogueImageUrl(component.media?.url),
-              catalogueStartDate: validityDates.validityStartDate,
-              catalogueEndDate: validityDates.validityEndDate,
+              catalogueStartDate,
+              catalogueEndDate,
             });
           }
         } catch {
@@ -574,58 +581,11 @@ function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
   });
 }
 
-function normalizeDateCandidate(value: unknown): string | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const absolute = Math.abs(value);
-    const millis =
-      absolute >= 1_000_000_000_000
-        ? value
-        : absolute >= 1_000_000_000
-          ? value * 1000
-          : Number.NaN;
-
-    if (!Number.isNaN(millis)) {
-      return new Date(millis).toISOString();
-    }
-  }
-
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  /**
-   * TODO: Normalize bare calendar dates to explicit timestamps before using them in date comparisons.
-   * 
-   * normalizeDateCandidate() returns YYYY-MM-DD strings as-is, 
-   * but Date.parse() interprets these as UTC midnight (start of day), not as a whole calendar day. 
-   * This causes date ordering and expiry checks to be off by up to 24 hours. 
-   * 
-   * For example, a catalogue ending on 2026-03-29 will be considered expired at the start of 2026-03-29 instead of the end of the day.
-   * Convert bare calendar dates to explicit end-of-day ISO timestamps before returning from normalizeDateCandidate(), 
-   * or ensure all values passed to pickEarliest(), pickLatest(), and isExpired() use consistent representations.
-   */
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-
-  if (/^\d{13}$/.test(trimmed)) {
-    return new Date(Number(trimmed)).toISOString();
-  }
-
-  if (/^\d{10}$/.test(trimmed)) {
-    return new Date(Number(trimmed) * 1000).toISOString();
-  }
-
-  const parsed = Date.parse(trimmed);
-  if (Number.isNaN(parsed)) {
-    return null;
-  }
-  return new Date(parsed).toISOString();
+function normalizeDateCandidate(
+  value: unknown,
+  options?: { endOfDay?: boolean },
+): number | null {
+  return parseDateTimestamp(value, options);
 }
 
 function keyPathMatches(path: string[], patterns: string[]): boolean {
@@ -635,7 +595,7 @@ function keyPathMatches(path: string[], patterns: string[]): boolean {
 
 function collectPromotionDates(
   value: unknown,
-  collector: { starts: Set<string>; ends: Set<string> },
+  collector: { starts: Set<number>; ends: Set<number> },
   path: string[] = [],
   depth = 0,
   seen = new Set<object>(),
@@ -670,7 +630,7 @@ function collectPromotionDates(
       keyPathMatches(nextPath, START_DATE_KEYS)
     ) {
       const normalized = normalizeDateCandidate(entry);
-      if (normalized) {
+      if (normalized != null) {
         collector.starts.add(normalized);
       }
     }
@@ -680,8 +640,8 @@ function collectPromotionDates(
       (typeof entry === "string" || typeof entry === "number") &&
       keyPathMatches(nextPath, END_DATE_KEYS)
     ) {
-      const normalized = normalizeDateCandidate(entry);
-      if (normalized) {
+      const normalized = normalizeDateCandidate(entry, { endOfDay: true });
+      if (normalized != null) {
         collector.ends.add(normalized);
       }
     }
@@ -690,28 +650,20 @@ function collectPromotionDates(
   }
 }
 
-function pickEarliest(values: Iterable<string>): string | null {
+function pickEarliest(values: Iterable<number>): number | null {
   const dated = Array.from(new Set(values))
-    .map((value) => ({
-      value,
-      millis: Date.parse(value),
-    }))
-    .filter((item) => !Number.isNaN(item.millis))
-    .sort((left, right) => left.millis - right.millis);
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .sort((left, right) => left - right);
 
-  return dated[0]?.value ?? null;
+  return dated[0] ?? null;
 }
 
-function pickLatest(values: Iterable<string>): string | null {
+function pickLatest(values: Iterable<number>): number | null {
   const dated = Array.from(new Set(values))
-    .map((value) => ({
-      value,
-      millis: Date.parse(value),
-    }))
-    .filter((item) => !Number.isNaN(item.millis))
-    .sort((left, right) => right.millis - left.millis);
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .sort((left, right) => right - left);
 
-  return dated[0]?.value ?? null;
+  return dated[0] ?? null;
 }
 
 function extractPromotionTextValue(promotion: any): string {
@@ -725,8 +677,8 @@ function extractPromotionTextValue(promotion: any): string {
 }
 
 function buildPromotionRangeText(promotion: PromotionWindow): string {
-  const start = promotion.startDate ?? "";
-  const end = promotion.endDate ?? "";
+  const start = formatDateYyyyMmDd(promotion.startDate);
+  const end = formatDateYyyyMmDd(promotion.endDate);
   const text = promotion.text ?? "";
 
   if (start && end && text) {
@@ -769,8 +721,8 @@ function extractPromotions(product: any): PromotionWindow[] {
 
   rawPromotions.forEach((promotion: any, index: number) => {
     const collector = {
-      starts: new Set<string>(),
-      ends: new Set<string>(),
+      starts: new Set<number>(),
+      ends: new Set<number>(),
     };
     collectPromotionDates(promotion, collector);
 
@@ -787,8 +739,8 @@ function extractPromotions(product: any): PromotionWindow[] {
 
     const key = [
       normalized.text,
-      normalized.startDate ?? "",
-      normalized.endDate ?? "",
+      String(normalized.startDate ?? ""),
+      String(normalized.endDate ?? ""),
     ].join("|");
 
     if (!collected.has(key)) {
@@ -806,25 +758,21 @@ function extractPromotionText(promotions: PromotionWindow[]): string {
 }
 
 function derivePromotionWindow(promotions: PromotionWindow[]): {
-  promotionStartDate: string | null;
-  promotionEndDate: string | null;
+  promotionStartDate: number | null;
+  promotionEndDate: number | null;
 } {
   return {
     promotionStartDate: pickEarliest(
-      promotions.map((promotion) => promotion.startDate).filter(Boolean) as string[],
+      promotions.map((promotion) => promotion.startDate).filter((value): value is number => value != null),
     ),
     promotionEndDate: pickLatest(
-      promotions.map((promotion) => promotion.endDate).filter(Boolean) as string[],
+      promotions.map((promotion) => promotion.endDate).filter((value): value is number => value != null),
     ),
   };
 }
 
-function isExpired(endDate: string | null): boolean {
-  if (!endDate) {
-    return false;
-  }
-  const parsed = Date.parse(endDate);
-  return !Number.isNaN(parsed) && parsed < Date.now();
+function isExpired(endTimestamp: number | null): boolean {
+  return endTimestamp != null && endTimestamp < Date.now();
 }
 
 async function fetchProducts(
@@ -1044,15 +992,15 @@ function buildRows(
 }
 
 function deriveDumpWindow(rows: ProductRow[]): {
-  promotionStartDate: string | null;
-  promotionEndDate: string | null;
+  promotionStartDate: number | null;
+  promotionEndDate: number | null;
 } {
   return {
     promotionStartDate: pickEarliest(
-      rows.map((row) => row.promotionStartDate).filter(Boolean) as string[],
+      rows.map((row) => row.promotionStartDate).filter((value): value is number => value != null),
     ),
     promotionEndDate: pickLatest(
-      rows.map((row) => row.promotionEndDate).filter(Boolean) as string[],
+      rows.map((row) => row.promotionEndDate).filter((value): value is number => value != null),
     ),
   };
 }
@@ -1101,8 +1049,10 @@ async function exportTarget(
   const details = await fetchProductDetails(products, storeCode, forceRefresh);
   const rows = buildRows(target, products, details);
   const barcodeCount = rows.filter((row) => row.barcodeFound).length;
-  const catalogueStartDate = target.catalogueStartDate ?? null;
-  const catalogueEndDate = target.catalogueEndDate ?? null;
+  const { promotionStartDate, promotionEndDate } = deriveDumpWindow(rows);
+  const dumpStartDate = promotionStartDate ?? target.catalogueStartDate ?? null;
+  const dumpEndDate = promotionEndDate ?? target.catalogueEndDate ?? null;
+  const effectiveEndDate = dumpEndDate;
 
   const baseDump: CatalogueDump = {
     catalogueId: key,
@@ -1115,9 +1065,9 @@ async function exportTarget(
     exportedAt: Date.now(),
     itemCount: rows.length,
     barcodeCount,
-    catalogueStartDate,
-    catalogueEndDate,
-    expired: isExpired(catalogueEndDate),
+    catalogueStartDate: dumpStartDate,
+    catalogueEndDate: dumpEndDate,
+    expired: isExpired(effectiveEndDate),
     csvUri: "",
     rows,
   };
@@ -1143,7 +1093,7 @@ async function exportTarget(
     catalogueEndDate: target.catalogueEndDate ?? null,
     promotionStartDate: persisted.dump.catalogueStartDate,
     promotionEndDate: persisted.dump.catalogueEndDate,
-    expired: persisted.dump.expired,
+    expired: isExpired(effectiveEndDate),
     csvUri: persisted.csvUri,
     dumpUri: persisted.dumpUri,
   };
@@ -1163,7 +1113,7 @@ async function exportTarget(
       catalogueEndDate: target.catalogueEndDate ?? null,
       promotionStartDate: persisted.dump.catalogueStartDate,
       promotionEndDate: persisted.dump.catalogueEndDate,
-      expired: persisted.dump.expired,
+      expired: isExpired(effectiveEndDate),
     },
     dump: includeDump ? persisted.dump : null,
   };
@@ -1177,7 +1127,7 @@ export async function discoverCatalogueTargets(): Promise<CatalogueTarget[]> {
 export async function probeCatalogueWindow(
   target: CatalogueTarget,
   storeCode: string,
-): Promise<{ promotionStartDate: string | null; promotionEndDate: string | null }> {
+): Promise<{ promotionStartDate: number | null; promotionEndDate: number | null }> {
   const payload = await requestJson(
     buildSearchUrl(target, 0, storeCode, {
       fields: PROBE_SEARCH_FIELDS,
