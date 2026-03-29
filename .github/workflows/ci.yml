@@ -83,7 +83,7 @@ jobs:
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_CREDENTIALS }}
-          groups: stable
+          groups: testers
           file: ./app-dev.apk
           releaseNotes: |
             v${{ steps.current_version.outputs.version }} (#${{ steps.current_version.outputs.versionCode }})

@@ -1,3 +1,5 @@
+import { parse } from "node-html-parser";
+import he from "he";
 import {
   fileExists,
   loadDumpByUri,
@@ -16,6 +18,7 @@ import type {
   SyncItemResult,
   SyncSummary,
 } from "../types";
+
 
 const BASE_URL = "https://www.pnp.co.za";
 const SEARCH_ENDPOINT = `${BASE_URL}/pnphybris/v2/pnp-spa/products/search`;
@@ -289,6 +292,12 @@ function buildCmsPageUrl(labelOrId: string): string {
   })}`;
 }
 
+/**
+ * Ensure a URL is absolute by prefixing the application's base URL to relative paths.
+ *
+ * @param value - The URL or path to convert into an absolute URL
+ * @returns The absolute URL. If `value` already begins with `http://` or `https://` it is returned unchanged; if `value` is falsy an empty string is returned; otherwise `BASE_URL` is prepended to `value`.
+ */
 function absolutizeUrl(value: string): string {
   if (!value) {
     return "";
@@ -299,44 +308,79 @@ function absolutizeUrl(value: string): string {
   return `${BASE_URL}${value}`;
 }
 
+/**
+ * Decode HTML entities in a string.
+ *
+ * @param value - The string containing HTML-encoded entities
+ * @returns The input string with HTML entities replaced by their corresponding characters
+ */
 function decodeHtml(value: string): string {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
-
-function extractLinksFromHtml(content: string): string[] {
-  const decoded = decodeHtml(content);
-  return Array.from(decoded.matchAll(/href=["']([^"']+)["']/gi), (match) => match[1]);
-}
-
-function extractTitle(content: string): string | null {
-  const decoded = decodeHtml(content);
-  // <h2>Pick n Pay Weekend Specials</h2>
-  const match = decoded?.match(/<h2>(.+)<\/h2>/);
-  if (match) {
-    return match[1]
-  }
-  return null
+  return he.decode(value);
 }
 
 /**
- * TODO: Infer the start year for cross-year validity ranges.
- * When the CMS omits the first year, this always copies the end year onto the start date. 
- * A range like Valid 28 December - 3 January 2026 is therefore recorded as starting in December 2026 instead of December 2025.
+ * Parse decoded HTML into usable entities
+ * 
+ * @param content - HTML string to parse
+ * @returns HTML entities
+ */
+function parseCmsContent(content: string) {
+  return parse(decodeHtml(content));
+}
+
+/**
+ * Extracts all href attribute values from anchor tags in an HTML string.
+ *
+ * The input is HTML (possibly containing encoded entities); entities are decoded before parsing.
+ *
+ * @param content - HTML string to search for anchor tags
+ * @returns An array of href attribute values found in `content` in document order
+ */
+function extractLinksFromHtml(content: string): string[] {
+  const root = parseCmsContent(content);
+  return root.querySelectorAll("a[href]").map((el) => el.getAttribute("href")!);
+}
+
+/**
+ * Extracts the trimmed text of the first <h2> element from an HTML string.
+ *
+ * @param content - HTML content (may contain encoded entities) to parse
+ * @returns The trimmed text of the first `h2` element, or `null` if no `h2` is found
+ */
+function extractTitle(content: string): string | null {
+  const root = parseCmsContent(content);
+  return root.querySelector("h2")?.textContent?.trim() ?? null;
+}
+/**
+ * Extracts catalogue validity start and end dates from CMS component HTML content.
+ *
+ * @param content - HTML string of a CMS component (may contain HTML entities)
+ * @returns The extracted `validityStartDate` and `validityEndDate` as `D Month YYYY` strings, or `null` when not present. If the source range omits the start year, the end year is copied onto the start date.
  */
 function extractValidityDates(content: string): { validityStartDate: string | null; validityEndDate: string | null } {
-  const decoded = decodeHtml(content);
-  /*<p class="cat-validity-date">Valid 26 March - 29 March 2026</p>*/
+  const root = parseCmsContent(content);
+
+  const el = root.querySelector("p.cat-validity-date");
+  const text = el?.innerText?.trim() ?? "";
+
   const regex = /Valid (\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/;
-  const match = decoded?.match(regex);
+  const match = text.match(regex);
+
   if (match) {
-    return { validityStartDate: `${match[1]} ${match[2]} ${match[3] ?? match[6]}`, validityEndDate: `${match[4]} ${match[5]} ${match[6]}` };
+    /**
+     * TODO: Infer the start year for cross-year validity ranges.
+     * When the CMS omits the first year (match[3] is undefined), the end year (match[6]) is
+     * unconditionally copied onto the start date. A range like "Valid 28 December - 3 January 2026"
+     * is therefore recorded as starting in December 2026 instead of December 2025.
+     * Fix: if the start month is later in the year than the end month, subtract 1 from the end year.
+     * Tracked: https://github.com/whaitukay/pnp-catalogue-finder/issues/7
+     */
+    return {
+      validityStartDate: `${match[1]} ${match[2]} ${match[3] ?? match[6]}`,
+      validityEndDate: `${match[4]} ${match[5]} ${match[6]}`,
+    };
   }
+
   return { validityStartDate: null, validityEndDate: null };
 }
 
