@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Image,
+  Linking,
   PixelRatio,
   Pressable,
   ScrollView,
@@ -15,224 +16,155 @@ import * as bwipjs from "@bwip-js/react-native";
 import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge } from "../components/StatusBadge";
 import { sharedStyles } from "../theme";
-import type { CatalogueDump, ManifestEntry, ProductRow } from "../types";
-import { formatTimestamp, formatDateStampRange, getCatalogueTimingStatus } from "../utils/catalogueUi";
+import type { CatalogueDump, ProductRow } from "../types";
+import { formatDateStamp, getCatalogueTimingStatus } from "../utils/catalogueUi";
 
 type DumpsScreenProps = {
-  selectedDump: CatalogueDump | null;
-  pagedDumpLibrary: ManifestEntry[];
-  visibleCachedCatalogues: ManifestEntry[];
-  dumpLibraryPage: number;
+  selectedDump: CatalogueDump;
   dumpSearch: string;
   filteredDumpRows: ProductRow[];
   pagedDumpRows: ProductRow[];
   dumpRowsPage: number;
-  onOpenDump: (catalogueId: string) => void;
-  onBackToLibrary: () => void;
+  onBackToCatalogues: () => void;
   onEmailDump: (catalogueId: string) => void;
-  onDumpLibraryPageChange: (nextPage: number) => void;
   onDumpSearchChange: (value: string) => void;
   onDumpRowsPageChange: (nextPage: number) => void;
 };
 
 export function DumpsScreen({
   selectedDump,
-  pagedDumpLibrary,
-  visibleCachedCatalogues,
-  dumpLibraryPage,
   dumpSearch,
   filteredDumpRows,
   pagedDumpRows,
   dumpRowsPage,
-  onOpenDump,
-  onBackToLibrary,
+  onBackToCatalogues,
   onEmailDump,
-  onDumpLibraryPageChange,
   onDumpSearchChange,
   onDumpRowsPageChange,
 }: DumpsScreenProps): React.ReactElement {
-  if (selectedDump) {
-    const selectedDumpTiming = getCatalogueTimingStatus(
-      selectedDump.catalogueStartDate,
-      selectedDump.catalogueEndDate,
-    );
-
-    return (
-      <ScrollView contentContainerStyle={sharedStyles.content}>
-        <View style={sharedStyles.buttonRow}>
-          <Pressable onPress={onBackToLibrary} style={sharedStyles.secondaryButton}>
-            <Text style={sharedStyles.secondaryButtonText}>Back to dumps</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => onEmailDump(selectedDump.catalogueId)}
-            style={sharedStyles.primaryButton}
-          >
-            <Text style={sharedStyles.primaryButtonText}>Email this CSV</Text>
-          </Pressable>
-        </View>
-
-        <View style={sharedStyles.card}>
-          <View style={sharedStyles.cardHeaderRow}>
-            <View style={sharedStyles.cardHeaderText}>
-              <Text style={sharedStyles.cardTitle}>{selectedDump.label}</Text>
-            </View>
-            {selectedDumpTiming === "active" ? (
-              <StatusBadge label="Active" variant="success" />
-            ) : null}
-            {selectedDumpTiming === "future" ? (
-              <StatusBadge label="Future" variant="warning" />
-            ) : null}
-            {selectedDumpTiming === "expired" ? (
-              <StatusBadge label="Expired" variant="danger" />
-            ) : null}
-          </View>
-          <Text style={sharedStyles.bodyText}>
-            {selectedDump.barcodeCount}/{selectedDump.itemCount} barcodes found
-          </Text>
-          <Text style={sharedStyles.metaText}>
-            {formatDateStampRange(selectedDump.catalogueStartDate, selectedDump.catalogueEndDate)}
-          </Text>
-          <Text style={sharedStyles.metaText}>
-            Updated {formatTimestamp(selectedDump.exportedAt)}
-          </Text>
-          {selectedDump.sourceUrl ? (
-            <Text numberOfLines={1} style={sharedStyles.linkText}>
-              {selectedDump.sourceUrl}
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={sharedStyles.card}>
-          <Text style={sharedStyles.cardTitle}>Search this dump</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={onDumpSearchChange}
-            style={sharedStyles.input}
-            value={dumpSearch}
-          />
-          <Text style={sharedStyles.metaText}>
-            Showing {filteredDumpRows.length} of {selectedDump.rows.length} item(s).
-          </Text>
-        </View>
-
-        {pagedDumpRows.length > 0 ? (
-          pagedDumpRows.map((row) => <DumpRowCard key={row.position} row={row} />)
-        ) : (
-          <View style={sharedStyles.card}>
-            <Text style={sharedStyles.bodyText}>No items match that search.</Text>
-          </View>
-        )}
-
-        <PaginationControls
-          onPageChange={onDumpRowsPageChange}
-          page={dumpRowsPage}
-          pageSize={24}
-          totalItems={filteredDumpRows.length}
-        />
-      </ScrollView>
-    );
-  }
+  const selectedDumpTiming = getCatalogueTimingStatus(
+    selectedDump.catalogueStartDate,
+    selectedDump.catalogueEndDate,
+  );
 
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
+      <View style={sharedStyles.buttonRow}>
+        <Pressable onPress={onBackToCatalogues} style={sharedStyles.secondaryButton}>
+          <Text style={sharedStyles.secondaryButtonText}>Back to catalogues</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onEmailDump(selectedDump.catalogueId)}
+          style={sharedStyles.primaryButton}
+        >
+          <Text style={sharedStyles.primaryButtonText}>Email this CSV</Text>
+        </Pressable>
+      </View>
+
       <View style={sharedStyles.card}>
-        <Text style={sharedStyles.cardTitle}>Cached dump library</Text>
-        <Text style={sharedStyles.bodyText}>
-          Open any cached dump to inspect products, search for a barcode, and send the current CSV by email.
+        <View style={sharedStyles.cardHeaderRow}>
+          <View style={sharedStyles.cardHeaderText}>
+            <Text style={sharedStyles.cardTitle}>{selectedDump.label}</Text>
+          </View>
+          {selectedDumpTiming === "active" ? (
+            <StatusBadge label="Active" variant="success" />
+          ) : null}
+          {selectedDumpTiming === "future" ? (
+            <StatusBadge label="Future" variant="warning" />
+          ) : null}
+          {selectedDumpTiming === "expired" ? (
+            <StatusBadge label="Expired" variant="danger" />
+          ) : null}
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={sharedStyles.metaText}>Items</Text>
+          <Text style={[sharedStyles.metaText, styles.summaryValue]}>
+            {selectedDump.itemCount ?? selectedDump.rows.length}
+          </Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={sharedStyles.metaText}>Start</Text>
+          <Text style={[sharedStyles.metaText, styles.summaryValue]}>
+            {formatDateStamp(selectedDump.catalogueStartDate)}
+          </Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={sharedStyles.metaText}>End</Text>
+          <Text style={[sharedStyles.metaText, styles.summaryValue]}>
+            {formatDateStamp(selectedDump.catalogueEndDate)}
+          </Text>
+        </View>
+        {selectedDump.sourceUrl ? (
+          <Pressable
+            onPress={() => {
+              void Linking.openURL(selectedDump.sourceUrl).catch((error: unknown) => {
+                console.warn("Failed to open catalogue URL", error);
+              });
+            }}
+            style={sharedStyles.secondaryButton}
+          >
+            <Text style={sharedStyles.secondaryButtonText}>View on website</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <View style={sharedStyles.card}>
+        <Text style={sharedStyles.cardTitle}>Search this dump</Text>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          onChangeText={onDumpSearchChange}
+          style={sharedStyles.input}
+          value={dumpSearch}
+        />
+        <Text style={sharedStyles.metaText}>
+          Showing {filteredDumpRows.length} of {selectedDump.rows.length} item(s).
         </Text>
       </View>
 
-      {pagedDumpLibrary.length > 0 ? (
-        pagedDumpLibrary.map((item) => (
-          <DumpLibraryCard
-            item={item}
-            key={item.catalogueId}
-            onEmailDump={onEmailDump}
-            onOpenDump={onOpenDump}
-          />
-        ))
+      {pagedDumpRows.length > 0 ? (
+        pagedDumpRows.map((row) => <DumpRowCard key={row.position} row={row} />)
       ) : (
         <View style={sharedStyles.card}>
-          <Text style={sharedStyles.bodyText}>
-            No cached dumps are available for this store yet.
-          </Text>
+          <Text style={sharedStyles.bodyText}>No items match that search.</Text>
         </View>
       )}
 
       <PaginationControls
-        onPageChange={onDumpLibraryPageChange}
-        page={dumpLibraryPage}
-        pageSize={8}
-        totalItems={visibleCachedCatalogues.length}
+        onPageChange={onDumpRowsPageChange}
+        page={dumpRowsPage}
+        pageSize={24}
+        totalItems={filteredDumpRows.length}
       />
     </ScrollView>
   );
 }
 
-/**
- * Render a card summarizing a cached catalogue dump for the library view.
- *
- * Renders title, timing badge, item counts, promotion date range, last-updated timestamp, and action buttons.
- *
- * @param item - Manifest entry containing metadata for the catalogue dump
- * @param onOpenDump - Callback invoked with the catalogueId when the "Open dump" button is pressed
- * @param onEmailDump - Callback invoked with the catalogueId when the "Email CSV" button is pressed
- * @returns A React element representing the dump library card
- */
-function DumpLibraryCard({
-  item,
-  onOpenDump,
-  onEmailDump,
-}: {
-  item: ManifestEntry;
-  onOpenDump: (catalogueId: string) => void;
-  onEmailDump: (catalogueId: string) => void;
-}): React.ReactElement {
-  const timingStatus = getCatalogueTimingStatus(
-    item.catalogueStartDate,
-    item.catalogueEndDate,
-  );
-
-  return (
-    <View key={item.catalogueId} style={sharedStyles.card}>
-      <View style={sharedStyles.cardHeaderRow}>
-        <View style={sharedStyles.cardHeaderText}>
-          <Text style={sharedStyles.cardTitle}>{item.label}</Text>
-        </View>
-        {timingStatus === "active" ? (
-          <StatusBadge label="Active" variant="success" />
-        ) : null}
-        {timingStatus === "future" ? (
-          <StatusBadge label="Future" variant="warning" />
-        ) : null}
-        {timingStatus === "expired" ? (
-          <StatusBadge label="Expired" variant="danger" />
-        ) : null}
-      </View>
-      <Text style={sharedStyles.bodyText}>
-        {item.barcodeCount} items
-      </Text>
-      <Text style={sharedStyles.metaText}>
-        {formatDateStampRange(item.promotionStartDate, item.promotionEndDate)}
-      </Text>
-      <Text style={sharedStyles.metaText}>
-        Updated {formatTimestamp(item.exportedAt)}
-      </Text>
-      <View style={sharedStyles.buttonRow}>
-        <Pressable onPress={() => onOpenDump(item.catalogueId)} style={sharedStyles.primaryButton}>
-          <Text style={sharedStyles.primaryButtonText}>Open dump</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onEmailDump(item.catalogueId)}
-          style={sharedStyles.secondaryButton}
-        >
-          <Text style={sharedStyles.secondaryButtonText}>Email CSV</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
+const styles = StyleSheet.create({
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  summaryValue: {
+    fontWeight: "800",
+  },
+  dumpRowCardRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  dumpRowCardDetails: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
+  dumpRowCardBarcode: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 72,
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
+  },
+});
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   const rawBarcode = typeof row.barcode === "string" ? row.barcode : "";
@@ -259,6 +191,8 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
           {row.baseProduct ? (
             <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
           ) : null}
+          {row.price ? <Text style={sharedStyles.metaText}>Price: {row.price}</Text> : null}
+          {row.promotion ? <Text style={sharedStyles.bodyText}>{row.promotion}</Text> : null}
           {hasBarcodeDigits && (!normalizedBarcode || barcodeError) ? (
             <Text style={sharedStyles.metaText}>Barcode not scannable</Text>
           ) : null}
@@ -447,21 +381,3 @@ function putBarcodeImageInCache(key: string, value: bwipjs.DataURL): void {
   }
 }
 
-const styles = StyleSheet.create({
-  dumpRowCardRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  dumpRowCardDetails: {
-    flex: 1,
-    minWidth: 0,
-    gap: 6,
-  },
-  dumpRowCardBarcode: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 72,
-    alignItems: "flex-end",
-    justifyContent: "flex-end",
-  },
-});
