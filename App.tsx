@@ -77,7 +77,7 @@ function errorMessage(error: unknown): string {
 export default function App(): React.ReactElement {
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === "dark";
-  const safeAreaBackground =
+  const safeAreaInsetBackground =
     isDarkMode ? BRAND.backgroundDark : BRAND.background;
   const safeAreaInsetStyle =
     isDarkMode ? styles.safeAreaDark : styles.safeAreaLight;
@@ -453,7 +453,7 @@ export default function App(): React.ReactElement {
         style={[styles.safeArea, safeAreaInsetStyle]}
       >
         <StatusBar
-          backgroundColor={safeAreaBackground}
+          backgroundColor={safeAreaInsetBackground}
           style={isDarkMode ? "light" : "dark"}
         />
         <View style={styles.appShell}>
