@@ -4,8 +4,10 @@ import {
   Linking,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -39,6 +41,7 @@ export function DirectoryCatalogueCard({
   onPull,
   onOpenDump,
 }: DirectoryCatalogueCardProps): React.ReactElement {
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const timingStatus = getCatalogueTimingStatus(
     item.promotionStartDate,
     item.promotionEndDate,
@@ -50,6 +53,7 @@ export function DirectoryCatalogueCard({
 
   useEffect(() => {
     setThumbnailLoadFailed(false);
+    setPreviewVisible(false);
   }, [item.catalogueImageUrl]);
 
   return (
@@ -60,7 +64,7 @@ export function DirectoryCatalogueCard({
             {canShowThumbnail ? (
               <>
                 <Pressable
-                  delayLongPress={2000}
+                  delayLongPress={1000}
                   onLongPress={() => setPreviewVisible(true)}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.label} thumbnail`}
@@ -70,30 +74,57 @@ export function DirectoryCatalogueCard({
                     source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}
                     style={styles.thumbnail}
                     resizeMode="cover"
-                    onError={() => setThumbnailLoadFailed(true)}
+                    onError={() => {
+                      setThumbnailLoadFailed(true);
+                      setPreviewVisible(false);
+                    }}
                   />
                 </Pressable>
-                <Modal
-                  transparent
-                  animationType="fade"
-                  visible={previewVisible}
-                  onRequestClose={() => setPreviewVisible(false)}
-                >
-                  <Pressable
-                    style={styles.previewOverlay}
-                    onPress={() => setPreviewVisible(false)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Close image preview"
+                {previewVisible ? (
+                  <Modal
+                    transparent
+                    animationType="fade"
+                    visible
+                    onRequestClose={() => setPreviewVisible(false)}
                   >
-                    <Image
-                      source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}
-                      style={styles.previewImage}
-                      resizeMode="contain"
-                      accessibilityRole="image"
-                      accessibilityLabel={`${item.label} thumbnail preview`}
-                    />
-                  </Pressable>
-                </Modal>
+                    <View style={styles.previewOverlay}>
+                      <Pressable
+                        style={styles.previewBackdrop}
+                        onPress={() => setPreviewVisible(false)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Close image preview"
+                      />
+                      <ScrollView
+                        style={styles.previewScroll}
+                        contentContainerStyle={styles.previewScrollContent}
+                        minimumZoomScale={1}
+                        maximumZoomScale={4}
+                        showsHorizontalScrollIndicator={false}
+                        showsVerticalScrollIndicator={false}
+                        accessibilityLabel="Image preview"
+                      >
+                        <Image
+                          source={{
+                            uri: item.catalogueImageUrl!,
+                            cache: "force-cache",
+                          }}
+                          style={{ width: viewportWidth, height: viewportHeight }}
+                          resizeMode="contain"
+                          accessibilityRole="image"
+                          accessibilityLabel={`${item.label} thumbnail preview`}
+                        />
+                      </ScrollView>
+                      <Pressable
+                        onPress={() => setPreviewVisible(false)}
+                        style={styles.previewCloseButton}
+                        accessibilityRole="button"
+                        accessibilityLabel="Close image preview"
+                      >
+                        <Text style={styles.previewCloseButtonText}>X</Text>
+                      </Pressable>
+                    </View>
+                  </Modal>
+                ) : null}
               </>
             ) : null}
             <Text style={[sharedStyles.cardTitle, styles.titleText]}>{item.label}</Text>
@@ -170,9 +201,36 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.92)",
     padding: 16,
   },
-  previewImage: {
-    width: "100%",
-    height: "100%",
+  previewBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  previewScroll: {
+    flex: 1,
+    alignSelf: "stretch",
+  },
+  previewScrollContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  previewCloseButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.35)",
+  },
+  previewCloseButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 20,
   },
   badges: {
     flexDirection: "row",
