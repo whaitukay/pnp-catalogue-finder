@@ -351,13 +351,61 @@ function extractTitle(content: string): string | null {
   const root = parseCmsContent(content);
   return root.querySelector("h2")?.textContent?.trim() ?? null;
 }
+
+const VALIDITY_MONTH_KEYS = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+];
+
+function getValidityMonthIndex(value: string): number | null {
+  const key = value.trim().slice(0, 3).toLowerCase();
+  const index = VALIDITY_MONTH_KEYS.indexOf(key);
+  return index === -1 ? null : index;
+}
+
+function inferValidityStartYear(
+  explicitStartYear: string | undefined,
+  startMonth: string,
+  endMonth: string,
+  endYear: string,
+): string {
+  if (explicitStartYear) {
+    return explicitStartYear;
+  }
+
+  const endYearNumber = Number(endYear);
+  const startMonthIndex = getValidityMonthIndex(startMonth);
+  const endMonthIndex = getValidityMonthIndex(endMonth);
+
+  if (
+    Number.isFinite(endYearNumber) &&
+    startMonthIndex != null &&
+    endMonthIndex != null &&
+    startMonthIndex > endMonthIndex
+  ) {
+    return String(endYearNumber - 1);
+  }
+
+  return endYear;
+}
+
 /**
  * Extracts catalogue validity start and end dates from CMS component HTML content.
  *
- * @param content - HTML string of a CMS component (may contain HTML entities)
- * @returns The extracted `validityStartDate` and `validityEndDate` as `D Month YYYY` strings, or `null` when not present. If the source range omits the start year, the end year is copied onto the start date.
+* @param content - HTML string of a CMS component (may contain HTML entities)
+* @returns The extracted `validityStartDate` and `validityEndDate` as `D Month YYYY` strings, or `null` when not present. If the source range omits the start year, it is inferred from the end year and the start/end month boundary.
  */
-function extractValidityDates(content: string): { validityStartDate: string | null; validityEndDate: string | null } {
+export function extractValidityDates(content: string): { validityStartDate: string | null; validityEndDate: string | null } {
   const root = parseCmsContent(content);
 
   const el = root.querySelector("p.cat-validity-date");
@@ -367,16 +415,15 @@ function extractValidityDates(content: string): { validityStartDate: string | nu
   const match = text.match(regex);
 
   if (match) {
-    /**
-     * TODO: Infer the start year for cross-year validity ranges.
-     * When the CMS omits the first year (match[3] is undefined), the end year (match[6]) is
-     * unconditionally copied onto the start date. A range like "Valid 28 December - 3 January 2026"
-     * is therefore recorded as starting in December 2026 instead of December 2025.
-     * Fix: if the start month is later in the year than the end month, subtract 1 from the end year.
-     * Tracked: https://github.com/whaitukay/pnp-catalogue-finder/issues/7
-     */
+    const inferredStartYear = inferValidityStartYear(
+      match[3],
+      match[2],
+      match[5],
+      match[6],
+    );
+
     return {
-      validityStartDate: `${match[1]} ${match[2]} ${match[3] ?? match[6]}`,
+      validityStartDate: `${match[1]} ${match[2]} ${inferredStartYear}`,
       validityEndDate: `${match[4]} ${match[5]} ${match[6]}`,
     };
   }
