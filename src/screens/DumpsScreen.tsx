@@ -226,7 +226,7 @@ function DumpLibraryCard({
 }
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
-  const eanValue = React.useMemo(() => normalizeEan13(row.barcode), [row.barcode]);
+  const eanValue = normalizeEan13(row.barcode);
   const [barcodeWidth, setBarcodeWidth] = React.useState<number | null>(null);
 
   return (
@@ -258,7 +258,8 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
               height={58}
               lineColor="#142131"
               maxWidth={barcodeWidth ?? 160}
-              text={<Text style={styles.barcodeText}>{eanValue}</Text>}
+              text={eanValue}
+              textStyle={styles.barcodeText}
               value={eanValue}
               width={1.4}
             />
