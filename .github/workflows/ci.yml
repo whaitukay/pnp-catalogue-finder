@@ -16,7 +16,7 @@ permissions:
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
   NODE_OPTIONS: --openssl-legacy-provider
-  EAS_CLI_VERSION: "16.4.0"
+  EAS_CLI_VERSION: "18.4.0"
 
 jobs:
   check-skip:
@@ -36,7 +36,7 @@ jobs:
       contents: read
     steps:
       - name: 🏗 Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-node
       - name: 🧪 Run TypeScript check
@@ -52,7 +52,7 @@ jobs:
       contents: read
     steps:
       - name: 🏗 Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-build
         with:
@@ -95,7 +95,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: 📦 Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: app-dev
           path: ./app-dev.apk
@@ -111,7 +111,7 @@ jobs:
       contents: write
     steps:
       - name: 🏗 Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-build
         with:
@@ -154,7 +154,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: 📦 Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: app-prod
           path: ./app-prod.apk
