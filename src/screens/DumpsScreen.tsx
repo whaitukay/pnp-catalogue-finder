@@ -227,7 +227,7 @@ function DumpLibraryCard({
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   const hasRawBarcode = Boolean(row.barcode.trim());
-  const eanValue = normalizeEan13(row.barcode);
+  const normalizedBarcode = normalizeEan(row.barcode);
   const [barcodeWidth, setBarcodeWidth] = React.useState<number | null>(null);
 
   return (
@@ -240,13 +240,13 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
           {row.baseProduct ? (
             <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
           ) : null}
-          {hasRawBarcode && !eanValue ? (
+          {hasRawBarcode && !normalizedBarcode ? (
             <Text style={sharedStyles.metaText}>Barcode not scannable</Text>
           ) : null}
           {!hasRawBarcode ? <Text style={sharedStyles.metaText}>Barcode missing</Text> : null}
           {row.error ? <Text style={sharedStyles.errorSmall}>{row.error}</Text> : null}
         </View>
-        {eanValue ? (
+        {normalizedBarcode ? (
           <View
             onLayout={(event) => {
               const nextWidth = Math.floor(event.nativeEvent.layout.width);
@@ -258,13 +258,13 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
           >
             <Barcode
               background="#ffffff"
-              format="EAN13"
+              format={normalizedBarcode.format}
               height={58}
               lineColor="#142131"
               maxWidth={barcodeWidth ?? 160}
-              text={eanValue}
+              text={normalizedBarcode.value}
               textStyle={styles.barcodeText}
-              value={eanValue}
+              value={normalizedBarcode.value}
               width={1.4}
             />
           </View>
@@ -274,7 +274,9 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   );
 }
 
-function normalizeEan13(value: string): string | null {
+function normalizeEan(
+  value: string,
+): { format: "EAN13" | "EAN8"; value: string } | null {
   const digits = value.replace(/\D/g, "");
   if (digits.length === 13) {
     const body = digits.slice(0, 12);
@@ -283,11 +285,25 @@ function normalizeEan13(value: string): string | null {
       return null;
     }
 
-    return digits;
+    return { format: "EAN13", value: digits };
   }
 
   if (digits.length === 12) {
-    return `${digits}${ean13CheckDigit(digits)}`;
+    return { format: "EAN13", value: `${digits}${ean13CheckDigit(digits)}` };
+  }
+
+  if (digits.length === 8) {
+    const body = digits.slice(0, 7);
+    const checkDigit = digits[7];
+    if (checkDigit !== ean8CheckDigit(body)) {
+      return null;
+    }
+
+    return { format: "EAN8", value: digits };
+  }
+
+  if (digits.length === 7) {
+    return { format: "EAN8", value: `${digits}${ean8CheckDigit(digits)}` };
   }
 
   return null;
@@ -298,6 +314,16 @@ function ean13CheckDigit(twelveDigits: string): string {
   for (let index = 0; index < 12; index += 1) {
     const digit = Number(twelveDigits[index]);
     sum += digit * (index % 2 === 0 ? 1 : 3);
+  }
+
+  return String((10 - (sum % 10)) % 10);
+}
+
+function ean8CheckDigit(sevenDigits: string): string {
+  let sum = 0;
+  for (let index = 0; index < 7; index += 1) {
+    const digit = Number(sevenDigits[index]);
+    sum += digit * (index % 2 === 0 ? 3 : 1);
   }
 
   return String((10 - (sum % 10)) % 10);
