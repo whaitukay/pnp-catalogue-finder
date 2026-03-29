@@ -4,6 +4,7 @@ export const BRAND = {
   amber: "#fff4dc",
   amberDark: "#8b5d00",
   background: "#f4f8fc",
+  backgroundDark: "#121212",
   blue: "#004a98",
   blueDark: "#00356d",
   blueSoft: "#edf4ff",

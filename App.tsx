@@ -2,7 +2,7 @@ import { StatusBar } from "expo-status-bar";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { StatusBanner } from "./src/components/StatusBanner";
@@ -73,6 +73,13 @@ function errorMessage(error: unknown): string {
   * @returns The app's root React element.
   */
 export default function App(): React.ReactElement {
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === "dark";
+  const safeAreaInsetBackground =
+    isDarkMode ? BRAND.backgroundDark : BRAND.background;
+  const safeAreaInsetStyle =
+    isDarkMode ? styles.safeAreaDark : styles.safeAreaLight;
+
   const [activeTab, setActiveTab] = useState<TabKey>("catalogues");
   const [storeCode, setStoreCode] = useState(DEFAULT_SETTINGS.storeCode);
   const [hideExpiredCatalogues, setHideExpiredCatalogues] = useState(
@@ -412,8 +419,14 @@ export default function App(): React.ReactElement {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView edges={["top", "bottom", "left", "right"]} style={styles.safeArea}>
-        <StatusBar style="auto" />
+      <SafeAreaView
+        edges={["top", "bottom", "left", "right"]}
+        style={[styles.safeArea, safeAreaInsetStyle]}
+      >
+        <StatusBar
+          backgroundColor={safeAreaInsetBackground}
+          style={isDarkMode ? "light" : "dark"}
+        />
         <View style={styles.appShell}>
           <View style={styles.headerBlock}>
             <Text style={styles.title}>Pick n Pay Catalogue Helper</Text>
@@ -521,10 +534,16 @@ export default function App(): React.ReactElement {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  safeAreaLight: {
     backgroundColor: BRAND.background,
+  },
+  safeAreaDark: {
+    backgroundColor: BRAND.backgroundDark,
   },
   appShell: {
     flex: 1,
+    backgroundColor: BRAND.background,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 10,
