@@ -277,6 +277,12 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
 function normalizeEan13(value: string): string | null {
   const digits = value.replace(/\D/g, "");
   if (digits.length === 13) {
+    const body = digits.slice(0, 12);
+    const checkDigit = digits[12];
+    if (checkDigit !== ean13CheckDigit(body)) {
+      return null;
+    }
+
     return digits;
   }
 
