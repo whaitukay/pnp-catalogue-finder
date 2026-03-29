@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@kichiyaki/react-native-barcode-generator": "^0.6.7",
     "expo": "^55.0.9",
     "expo-dev-client": "~55.0.19",
     "expo-file-system": "~55.0.11",
