@@ -1,37 +1,87 @@
-# Catalogue Helper Mobile
+# PnP Catalogue Finder (Expo)
 
-This is the Expo app for phase 2 of the Pick n Pay catalogue workflow.
+[![React Native CI/CD](https://github.com/whaitukay/pnp-catalogue-finder/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/whaitukay/pnp-catalogue-finder/actions/workflows/ci.yml)
+[![Open issues](https://img.shields.io/github/issues/whaitukay/pnp-catalogue-finder)](https://github.com/whaitukay/pnp-catalogue-finder/issues)
+[![Bugs](https://img.shields.io/github/issues-search/whaitukay/pnp-catalogue-finder?query=is%3Aopen+label%3Abug&label=bugs)](https://github.com/whaitukay/pnp-catalogue-finder/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+[![Latest release](https://img.shields.io/github/v/release/whaitukay/pnp-catalogue-finder?display_name=tag&sort=semver)](https://github.com/whaitukay/pnp-catalogue-finder/releases)
+[![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/whaitukay/pnp-catalogue-finder?utm_source=oss&utm_medium=github&utm_campaign=whaitukay%2Fpnp-catalogue-finder&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 
-## Status:
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/whaitukay/pnp-catalogue-finder?utm_source=oss&utm_medium=github&utm_campaign=whaitukay%2Fpnp-catalogue-finder&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+An Expo (React Native) app that helps extract Pick n Pay online promotion catalogues into a shareable CSV (Android-first; web tooling included).
 
-## Structure
+The app discovers catalogue categories on `pnp.co.za`, pulls the products for each catalogue, caches the raw dump + derived CSV on-device, and lets you share/export those CSVs (email/share sheet).
 
-- `App.tsx`: single-screen app shell with four tabs.
-- `src/services/pnp.ts`: catalogue discovery, single-url scan, barcode lookup, and export orchestration.
-- `src/services/catalogueStore.ts`: local cache files, dump files, CSV files, and saved settings.
+## What you can do in the app
 
-## Features
-
-- Pull all currently discoverable catalogues and skip unchanged ones.
-- Open a cached catalogue dump and review the extracted items.
+- Discover currently available online catalogues.
+- Sync missing/updated catalogues and skip ones that are unchanged.
+- Open previously cached dumps and review/search extracted items.
 - Scan a single catalogue from a `Shop now` / `Buy now` URL.
-- Open the device email composer with the catalogue CSV attached.
+- Share/email a catalogue CSV export.
 
-## Install and run
+## Quick start
+
+### Prerequisites
+
+- Node.js 20+ (CI uses Node 20)
+- Android Studio + Android SDK (recommended for `npm run android`)
+- Expo Go (optional) or an Expo dev client
+
+### Install
 
 ```bash
-npm install
-npm run android:check
-npm run emulator
-npm run android
-npm run android:clear
+npm ci
 ```
 
-## Notes
+### Run
 
-- Cache, dump JSON, and CSV files are stored in Expo's document directory on the device.
-- The email flow uses `expo-mail-composer` when available, and falls back to file sharing if a mail composer is unavailable.
-- `npm install` has already been run in this workspace and a `package-lock.json` was generated.
-- Android tool locations are read from `.android-paths.json`, and the Expo scripts are wrapped by `with-android-env.ps1` so they do not depend on your global shell PATH.
-- The current Android SDK and JDK have been moved to `E:\AndroidDev`.
+Start the Metro bundler:
+
+```bash
+npm start
+```
+
+Then either:
+
+- Open the app in Expo Go (scan the QR code), or
+- Build and install the dev client on Android (run in a second terminal):
+
+```bash
+npm run android
+```
+
+## Useful commands
+
+All scripts live in `package.json`:
+
+- `npm start`: start the Expo dev server
+- `npm run start:clear`: start the Expo dev server and clear cache
+- `npm run android`: build and run the app on Android (requires local Android SDK)
+- `npm run android:clear`: start Expo dev server + clear cache and open Android
+- `npm run web`: run the web build
+- `npm run prebuild:clean`: regenerate native projects from the Expo config (**overwrites `android/` + `ios/`**)
+- `npm test`: run unit tests (Vitest)
+
+## Project layout
+
+- `App.tsx`: root state management + tabbed UI wiring
+- `src/screens/*`: tab screens (`Catalogues`, `Dumps`, `Scan URL`, `Settings`)
+- `src/services/pnp.ts`: discovery + PnP API scraping/pulling
+- `src/services/catalogueStore.ts`: on-device persistence (settings, caches, dumps, CSV exports)
+- `src/types.ts`: shared domain types
+- `src/utils/*`: UI helpers (pagination/search, directory item building)
+
+## Data storage
+
+All cache/dump/export files are stored under the app's Expo document directory.
+
+The directory prefix is currently `catalogue-helper/` (legacy name kept for compatibility).
+
+- Root: `catalogue-helper/`
+- Dumps: `catalogue-helper/dumps/`
+- CSV exports: `catalogue-helper/exports/`
+
+## CI/CD (high-level)
+
+GitHub Actions (`React Native CI/CD`) runs TypeScript checks on PRs/pushes.
+
+On pushes to `dev` and `main`, the workflow can also build Android artifacts and publish them (Firebase App Distribution + EAS Update), depending on available secrets.
