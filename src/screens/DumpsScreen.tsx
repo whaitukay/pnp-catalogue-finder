@@ -226,6 +226,7 @@ function DumpLibraryCard({
 }
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
+  const hasRawBarcode = Boolean(row.barcode.trim());
   const eanValue = normalizeEan13(row.barcode);
   const [barcodeWidth, setBarcodeWidth] = React.useState<number | null>(null);
 
@@ -239,7 +240,10 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
           {row.baseProduct ? (
             <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
           ) : null}
-          {!eanValue ? <Text style={sharedStyles.metaText}>Barcode missing</Text> : null}
+          {hasRawBarcode && !eanValue ? (
+            <Text style={sharedStyles.metaText}>Barcode not scannable</Text>
+          ) : null}
+          {!hasRawBarcode ? <Text style={sharedStyles.metaText}>Barcode missing</Text> : null}
           {row.error ? <Text style={sharedStyles.errorSmall}>{row.error}</Text> : null}
         </View>
         {eanValue ? (
