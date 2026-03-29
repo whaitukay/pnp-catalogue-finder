@@ -1,8 +1,9 @@
 import React from "react";
 import {
+  AccessibilityInfo,
   Image,
-  KeyboardAvoidingView,
   LayoutAnimation,
+  KeyboardAvoidingView,
   Linking,
   Platform,
   PixelRatio,
@@ -14,6 +15,7 @@ import {
   UIManager,
   View,
 } from "react-native";
+import type { LayoutAnimationConfig } from "react-native";
 
 import * as bwipjs from "@bwip-js/react-native";
 
@@ -52,26 +54,66 @@ export function DumpsScreen({
   );
 
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(false);
   const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+  const searchInputRef = React.useRef<React.ElementRef<typeof TextInput>>(null);
+
+  React.useLayoutEffect(() => {
+    if (Platform.OS === "android") {
+      UIManager.setLayoutAnimationEnabledExperimental?.(true);
+    }
+  }, []);
 
   React.useEffect(() => {
-    if (Platform.OS !== "android") {
+    let mounted = true;
+
+    void AccessibilityInfo.isReduceMotionEnabled().then((value: boolean) => {
+      if (mounted) {
+        setReduceMotionEnabled(value);
+      }
+    });
+
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      (value: boolean) => {
+        setReduceMotionEnabled(value);
+      },
+    );
+
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  const animateLayout = React.useCallback(() => {
+    if (reduceMotionEnabled || Platform.OS === "web") {
       return;
     }
 
-    UIManager.setLayoutAnimationEnabledExperimental?.(true);
-  }, []);
+    LayoutAnimation.configureNext(SEARCH_LAYOUT_ANIMATION);
+  }, [reduceMotionEnabled]);
 
   const handleSearchFocus = React.useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    animateLayout();
     setIsSearchFocused(true);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, []);
+  }, [animateLayout]);
 
   const handleSearchBlur = React.useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    animateLayout();
     setIsSearchFocused(false);
+  }, [animateLayout]);
+
+  const handleSearchDone = React.useCallback(() => {
+    searchInputRef.current?.blur();
   }, []);
+
+  const handleSearchClear = React.useCallback(() => {
+    animateLayout();
+    onDumpSearchChange("");
+    searchInputRef.current?.blur();
+  }, [animateLayout, onDumpSearchChange]);
 
   return (
     <KeyboardAvoidingView
@@ -81,6 +123,7 @@ export function DumpsScreen({
       <ScrollView
         contentContainerStyle={sharedStyles.content}
         ref={scrollRef}
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         keyboardShouldPersistTaps="handled"
         style={sharedStyles.flex}
       >
@@ -148,13 +191,28 @@ export function DumpsScreen({
         ) : null}
 
         <View style={sharedStyles.card}>
-          <Text style={sharedStyles.cardTitle}>Search this dump</Text>
+          <View style={styles.searchTitleRow}>
+            <Text style={sharedStyles.cardTitle}>Search this dump</Text>
+            {isSearchFocused ? (
+              <Pressable hitSlop={10} onPress={handleSearchDone}>
+                <Text style={sharedStyles.linkText}>Done</Text>
+              </Pressable>
+            ) : dumpSearch.trim().length > 0 ? (
+              <Pressable hitSlop={10} onPress={handleSearchClear}>
+                <Text style={sharedStyles.linkText}>Clear</Text>
+              </Pressable>
+            ) : null}
+          </View>
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
+            blurOnSubmit
             onBlur={handleSearchBlur}
             onChangeText={onDumpSearchChange}
             onFocus={handleSearchFocus}
+            onSubmitEditing={handleSearchDone}
+            ref={searchInputRef}
+            returnKeyType="done"
             style={sharedStyles.input}
             value={dumpSearch}
           />
@@ -183,6 +241,12 @@ export function DumpsScreen({
 }
 
 const styles = StyleSheet.create({
+  searchTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -207,6 +271,21 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
 });
+
+const SEARCH_LAYOUT_ANIMATION = {
+  duration: 180,
+  create: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
+  update: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+  },
+  delete: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
+} satisfies LayoutAnimationConfig;
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   const rawBarcode = typeof row.barcode === "string" ? row.barcode : "";
