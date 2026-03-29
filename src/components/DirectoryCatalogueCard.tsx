@@ -68,10 +68,11 @@ export function DirectoryCatalogueCard({
             {hasThumbnailUrl ? (
               <>
                 <Pressable
-                  onPress={() => setPreviewVisible(true)}
+                  delayLongPress={1000}
+                  onLongPress={() => setPreviewVisible(true)}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.label} thumbnail`}
-                  accessibilityHint="Opens full screen preview"
+                  accessibilityHint="Long press to open full screen preview"
                 >
                   {showThumbnail ? (
                     <Image
@@ -216,6 +217,7 @@ function ZoomableImage({
   const pinchStartDistance = React.useRef<number | null>(null);
   const pinchStartScale = React.useRef(1);
   const gestureWasPinch = React.useRef(false);
+  const didPan = React.useRef(false);
 
   const panResponder = React.useRef(
     PanResponder.create({
@@ -225,6 +227,7 @@ function ZoomableImage({
         pinchStartDistance.current = null;
         pinchStartScale.current = currentScale.current;
         gestureWasPinch.current = false;
+        didPan.current = false;
       },
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
@@ -257,6 +260,8 @@ function ZoomableImage({
           return;
         }
 
+        didPan.current = true;
+
         const maxOffsetX = (width * (currentScale.current - 1)) / 2;
         const maxOffsetY = (height * (currentScale.current - 1)) / 2;
 
@@ -275,11 +280,14 @@ function ZoomableImage({
         translateY.setValue(nextY);
       },
       onPanResponderRelease: (_evt, gestureState) => {
-        if (gestureWasPinch.current) {
+        if (gestureWasPinch.current && !didPan.current) {
           gestureWasPinch.current = false;
           pinchStartDistance.current = null;
           return;
         }
+
+        gestureWasPinch.current = false;
+        pinchStartDistance.current = null;
 
         if (currentScale.current <= 1.01) {
           currentScale.current = 1;
