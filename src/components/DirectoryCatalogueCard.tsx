@@ -68,11 +68,10 @@ export function DirectoryCatalogueCard({
             {hasThumbnailUrl ? (
               <>
                 <Pressable
-                  delayLongPress={2000}
-                  onLongPress={() => setPreviewVisible(true)}
+                  onPress={() => setPreviewVisible(true)}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.label} thumbnail`}
-                  accessibilityHint="Long press to preview full screen"
+                  accessibilityHint="Opens full screen preview"
                 >
                   {showThumbnail ? (
                     <Image
