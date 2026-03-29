@@ -76,6 +76,8 @@ function errorMessage(error: unknown): string {
  */
 export default function App(): React.ReactElement {
   const colorScheme = useColorScheme();
+  const safeAreaBackground =
+    colorScheme === "dark" ? BRAND.backgroundDark : BRAND.background;
   const safeAreaInsetStyle =
     colorScheme === "dark" ? styles.safeAreaDark : styles.safeAreaLight;
 
@@ -449,7 +451,10 @@ export default function App(): React.ReactElement {
         edges={["top", "bottom", "left", "right"]}
         style={[styles.safeArea, safeAreaInsetStyle]}
       >
-        <StatusBar style="auto" />
+        <StatusBar
+          backgroundColor={safeAreaBackground}
+          style={colorScheme === "dark" ? "light" : "dark"}
+        />
         <View style={styles.appShell}>
           <View style={styles.headerBlock}>
             <Text style={styles.title}>Pick n Pay Catalogue Helper</Text>
