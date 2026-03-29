@@ -1,7 +1,16 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  PixelRatio,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
-import Barcode from "@kichiyaki/react-native-barcode-generator";
+import * as bwipjs from "@bwip-js/react-native";
 
 import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge } from "../components/StatusBadge";
@@ -227,8 +236,15 @@ function DumpLibraryCard({
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   const hasRawBarcode = Boolean(row.barcode.trim());
-  const normalizedBarcode = normalizeEan(row.barcode);
-  const [barcodeWidth, setBarcodeWidth] = React.useState<number | null>(null);
+  const normalizedBarcode = React.useMemo(() => normalizeEan(row.barcode), [row.barcode]);
+  const [barcodeError, setBarcodeError] = React.useState(false);
+  const handleBarcodeError = React.useCallback(() => {
+    setBarcodeError(true);
+  }, []);
+
+  React.useEffect(() => {
+    setBarcodeError(false);
+  }, [normalizedBarcode?.format, normalizedBarcode?.value]);
 
   return (
     <View style={sharedStyles.card}>
@@ -240,37 +256,79 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
           {row.baseProduct ? (
             <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
           ) : null}
-          {hasRawBarcode && !normalizedBarcode ? (
+          {hasRawBarcode && (!normalizedBarcode || barcodeError) ? (
             <Text style={sharedStyles.metaText}>Barcode not scannable</Text>
           ) : null}
           {!hasRawBarcode ? <Text style={sharedStyles.metaText}>Barcode missing</Text> : null}
           {row.error ? <Text style={sharedStyles.errorSmall}>{row.error}</Text> : null}
         </View>
         {normalizedBarcode ? (
-          <View
-            onLayout={(event) => {
-              const nextWidth = Math.floor(event.nativeEvent.layout.width);
-              if (nextWidth > 0 && nextWidth !== barcodeWidth) {
-                setBarcodeWidth(nextWidth);
-              }
-            }}
-            style={styles.dumpRowCardBarcode}
-          >
-            <Barcode
-              background="#ffffff"
+          <View style={styles.dumpRowCardBarcode}>
+            <EanBarcode
               format={normalizedBarcode.format}
-              height={58}
-              lineColor="#142131"
-              maxWidth={barcodeWidth ?? 160}
-              text={normalizedBarcode.value}
-              textStyle={styles.barcodeText}
+              onError={handleBarcodeError}
               value={normalizedBarcode.value}
-              width={1.4}
             />
           </View>
         ) : null}
       </View>
     </View>
+  );
+}
+
+function EanBarcode({
+  format,
+  value,
+  onError,
+}: {
+  format: "EAN13" | "EAN8";
+  value: string;
+  onError: () => void;
+}): React.ReactElement | null {
+  const [source, setSource] = React.useState<bwipjs.DataURL | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setSource(null);
+
+    bwipjs
+      .toDataURL({
+        bcid: format === "EAN13" ? "ean13" : "ean8",
+        text: value,
+        scale: PixelRatio.get(),
+        height: 12,
+        includetext: true,
+        textxalign: "center",
+      })
+      .then((nextSource: bwipjs.DataURL) => {
+        if (!cancelled) {
+          setSource(nextSource);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          onError();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [format, value, onError]);
+
+  if (!source) {
+    return null;
+  }
+
+  return (
+    <Image
+      resizeMode="contain"
+      source={{ uri: source.uri }}
+      style={{
+        width: "100%",
+        height: 72,
+      }}
+    />
   );
 }
 
@@ -344,10 +402,5 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignItems: "flex-end",
     justifyContent: "flex-end",
-  },
-  barcodeText: {
-    fontSize: 11,
-    color: "#142131",
-    marginTop: 2,
   },
 });
