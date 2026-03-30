@@ -71,6 +71,12 @@ export function DumpsScreen({
       }
     });
 
+    if (Platform.OS === "web" || typeof AccessibilityInfo.addEventListener !== "function") {
+      return () => {
+        mounted = false;
+      };
+    }
+
     const subscription = AccessibilityInfo.addEventListener(
       "reduceMotionChanged",
       (value: boolean) => {
