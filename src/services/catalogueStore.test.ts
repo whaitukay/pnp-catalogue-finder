@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CatalogueDump } from "../types";
 
 const fsMock = vi.hoisted(() => {
@@ -25,6 +25,10 @@ vi.mock("expo-file-system/legacy", () => ({
 import { ensureCsvForDump, saveDump } from "./catalogueStore";
 
 describe("catalogueStore CSV dump", () => {
+  beforeEach(() => {
+    fsMock.files.clear();
+  });
+
   it("defers csv writing until ensureCsvForDump is called", async () => {
     const dump: CatalogueDump = {
       catalogueId: "WC21:burger-fridays",
