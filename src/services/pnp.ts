@@ -1044,10 +1044,13 @@ async function exportTarget(
   const key = catalogueIdForTarget(storeCode, target);
   const existingEntry = manifest.catalogues[key];
 
-  const slugLike = coalesceNonEmpty(target.slug, existingEntry?.slug);
-  const slug = coalesceNonEmpty(slugLike, target.label) ?? target.label;
-  let label = target.label;
   const trimmedLabel = target.label.trim();
+  const slugLike = coalesceNonEmpty(target.slug, existingEntry?.slug);
+  const slug = coalesceNonEmpty(slugLike, trimmedLabel) ?? trimmedLabel;
+  let label = target.label;
+  if (!trimmedLabel && existingEntry?.label) {
+    label = existingEntry.label;
+  }
   if (
     existingEntry &&
     slugLike &&
