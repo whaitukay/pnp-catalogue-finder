@@ -452,7 +452,9 @@ export default function App(): React.ReactElement {
         <View style={styles.appShell}>
           <View style={styles.headerBlock}>
             <Image accessible={false} source={pnpLogo} style={styles.headerLogo} />
-            <Text style={styles.title}>PnP Catalogue Helper</Text>
+            <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+              PnP Catalogue Helper
+            </Text>
           </View>
 
           <View style={styles.tabRow}>
@@ -578,7 +580,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
     shadowColor: "#8b1610",
     shadowOpacity: 0.18,
     shadowRadius: 18,
@@ -592,11 +593,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
+    marginEnd: 12,
   },
   title: {
     fontSize: 18,
     fontWeight: "800",
     color: BRAND.white,
+    flexShrink: 1,
   },
   tabRow: {
     flexDirection: "row",
