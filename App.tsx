@@ -410,9 +410,8 @@ export default function App(): React.ReactElement {
       }
 
       let entry = cachedCatalogues.find((item) => item.catalogueId === catalogueId) ?? null;
-      const selectedDumpMatch = selectedDump?.catalogueId === catalogueId ? selectedDump : null;
 
-      if (!entry && selectedDumpMatch) {
+      if (!entry) {
         try {
           const manifest = await loadManifestCache();
           entry = manifest.catalogues[catalogueId] ?? null;
@@ -420,6 +419,8 @@ export default function App(): React.ReactElement {
           console.warn("Failed to load manifest cache while preparing export", error);
         }
       }
+
+      const selectedDumpMatch = selectedDump?.catalogueId === catalogueId ? selectedDump : null;
 
       let dumpUri: string | null = null;
       let csvUriHint: string | undefined;

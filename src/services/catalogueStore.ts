@@ -364,7 +364,18 @@ export function safeFileName(value: string): string {
 
 function getSafeExportUri(uri: string | undefined | null): string | undefined {
   const normalized = normalizeNullableText(uri);
-  return normalized && normalized.startsWith(EXPORTS_DIR) ? normalized : undefined;
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (!normalized.startsWith(EXPORTS_DIR)) {
+    if (__DEV__) {
+      console.warn(`Ignoring csvUri outside exports directory: ${normalized}`);
+    }
+    return undefined;
+  }
+
+  return normalized;
 }
 
 export async function ensureStorage(): Promise<void> {
