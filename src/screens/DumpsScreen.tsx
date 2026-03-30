@@ -17,6 +17,7 @@ import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge } from "../components/StatusBadge";
 import { sharedStyles } from "../theme";
 import type { CatalogueDump, ProductRow } from "../types";
+import { normalizeBarcodeForRendering } from "../utils/barcodes";
 import { formatDateStamp, getCatalogueTimingStatus } from "../utils/catalogueUi";
 
 type DumpsScreenProps = {
@@ -171,7 +172,7 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   const barcodeDigits = rawBarcode.replace(/\D/g, "");
   const hasBarcodeDigits = barcodeDigits.length > 0;
   const normalizedBarcode = React.useMemo(
-    () => normalizeEanForRendering(barcodeDigits),
+    () => normalizeBarcodeForRendering(barcodeDigits),
     [barcodeDigits],
   );
   const [barcodeError, setBarcodeError] = React.useState(false);
@@ -182,7 +183,7 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
 
   React.useEffect(() => {
     setBarcodeError(false);
-  }, [normalizedBarcode?.format, normalizedBarcode?.value]);
+  }, [barcodeDigits, normalizedBarcode?.format, normalizedBarcode?.value]);
 
   return (
     <View style={sharedStyles.card}>
@@ -204,7 +205,7 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
         </View>
         {barcodeToShow ? (
           <View style={styles.dumpRowCardBarcode}>
-            <EanBarcode
+            <BarcodeImage
               format={barcodeToShow.format}
               onError={handleBarcodeError}
               value={barcodeToShow.value}
@@ -216,12 +217,12 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   );
 }
 
-function EanBarcode({
+function BarcodeImage({
   format,
   value,
   onError,
 }: {
-  format: "EAN13" | "EAN8";
+  format: "EAN13" | "EAN8" | "CODE128";
   value: string;
   onError: () => void;
 }): React.ReactElement | null {
@@ -241,7 +242,8 @@ function EanBarcode({
 
     bwipjs
       .toDataURL({
-        bcid: format === "EAN13" ? "ean13" : "ean8",
+        bcid:
+          format === "EAN13" ? "ean13" : format === "EAN8" ? "ean8" : "code128",
         text: value,
         scale,
         height: 12,
@@ -284,91 +286,6 @@ function EanBarcode({
       }}
     />
   );
-}
-
-/**
-* Normalizes digits into a bwip-js compatible EAN-13/EAN-8 input.
-*
-* Note: `2*` scale codes can come through with an invalid EAN-13 check digit; bwip-js rejects
-* these, so we recompute the check digit for rendering.
-*/
-function normalizeEanForRendering(
-  value: string,
-): { format: "EAN13" | "EAN8"; value: string } | null {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 13) {
-    const body = digits.slice(0, 12);
-    const checkDigit = digits[12];
-    const expectedCheckDigit = ean13CheckDigit(body);
-    if (checkDigit !== expectedCheckDigit) {
-      // Some in-store "scale" codes use the reserved `2*` prefix and can come through with an
-      // incorrect check digit. bwip-js rejects these, so we normalize to the computed digit.
-      if (digits.startsWith("2")) {
-        return { format: "EAN13", value: `${body}${expectedCheckDigit}` };
-      }
-      return null;
-    }
-
-    return { format: "EAN13", value: digits };
-  }
-
-  if (digits.length === 12) {
-    // Prefer interpreting 12 digits as a full UPC-A (including check digit) and normalizing to EAN-13.
-    // Otherwise, treat the 12 digits as an EAN-13 body missing its check digit.
-    const upcBody = digits.slice(0, 11);
-    const upcCheckDigit = digits[11];
-    if (upcCheckDigit === upcACheckDigit(upcBody)) {
-      return { format: "EAN13", value: `0${digits}` };
-    }
-
-    return { format: "EAN13", value: `${digits}${ean13CheckDigit(digits)}` };
-  }
-
-  if (digits.length === 8) {
-    const body = digits.slice(0, 7);
-    const checkDigit = digits[7];
-    if (checkDigit !== ean8CheckDigit(body)) {
-      return null;
-    }
-
-    return { format: "EAN8", value: digits };
-  }
-
-  if (digits.length === 7) {
-    return { format: "EAN8", value: `${digits}${ean8CheckDigit(digits)}` };
-  }
-
-  return null;
-}
-
-function ean13CheckDigit(twelveDigits: string): string {
-  let sum = 0;
-  for (let index = 0; index < 12; index += 1) {
-    const digit = Number(twelveDigits[index]);
-    sum += digit * (index % 2 === 0 ? 1 : 3);
-  }
-
-  return String((10 - (sum % 10)) % 10);
-}
-
-function upcACheckDigit(elevenDigits: string): string {
-  let sum = 0;
-  for (let index = 0; index < 11; index += 1) {
-    const digit = Number(elevenDigits[index]);
-    sum += digit * (index % 2 === 0 ? 3 : 1);
-  }
-
-  return String((10 - (sum % 10)) % 10);
-}
-
-function ean8CheckDigit(sevenDigits: string): string {
-  let sum = 0;
-  for (let index = 0; index < 7; index += 1) {
-    const digit = Number(sevenDigits[index]);
-    sum += digit * (index % 2 === 0 ? 3 : 1);
-  }
-
-  return String((10 - (sum % 10)) % 10);
 }
 
 // Keep this small: `bwipjs.toDataURL()` returns a base64 `data:` URI, which can be memory-heavy.
