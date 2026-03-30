@@ -2,7 +2,7 @@ import { StatusBar } from "expo-status-bar";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { Alert, Image, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { StatusBanner } from "./src/components/StatusBanner";
@@ -45,6 +45,8 @@ import {
   rowMatchesSearch,
 } from "./src/utils/catalogueUi";
 import type { DirectoryItem } from "./src/utils/catalogueUi";
+
+const pnpLogo = require("./assets/images/app-splash-icon.png");
 
 type TabKey = "catalogues" | "settings";
 
@@ -449,10 +451,8 @@ export default function App(): React.ReactElement {
         />
         <View style={styles.appShell}>
           <View style={styles.headerBlock}>
-            <Text style={styles.title}>Pick n Pay Catalogue Helper</Text>
-            <Text style={styles.subtitle}>
-              Live catalogue tracking, barcode dump review, and CSV email from one Expo app.
-            </Text>
+            <Image accessible={false} source={pnpLogo} style={styles.headerLogo} />
+            <Text style={styles.title}>PnP Catalogue Helper</Text>
           </View>
 
           <View style={styles.tabRow}>
@@ -573,9 +573,12 @@ const styles = StyleSheet.create({
   },
   headerBlock: {
     backgroundColor: BRAND.red,
-    borderRadius: 28,
+    borderRadius: 20,
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     shadowColor: "#8b1610",
     shadowOpacity: 0.18,
     shadowRadius: 18,
@@ -585,16 +588,15 @@ const styles = StyleSheet.create({
     },
     elevation: 4,
   },
+  headerLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
   title: {
-    fontSize: 30,
+    fontSize: 18,
     fontWeight: "800",
     color: BRAND.white,
-  },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 15,
-    lineHeight: 22,
-    color: "#fff0ee",
   },
   tabRow: {
     flexDirection: "row",

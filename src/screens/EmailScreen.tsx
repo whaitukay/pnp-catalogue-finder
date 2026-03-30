@@ -134,9 +134,6 @@ function ViewIntro(): React.ReactElement {
   return (
     <ViewSummaryShell>
       <Text style={sharedStyles.cardTitle}>Email a CSV attachment</Text>
-      <Text style={sharedStyles.bodyText}>
-        Choose a cached dump. The exported CSV uses the field selection currently configured in Settings.
-      </Text>
     </ViewSummaryShell>
   );
 }
