@@ -65,6 +65,8 @@ export function DumpsScreen({
   const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
   const searchInputRef = React.useRef<React.ElementRef<typeof TextInput>>(null);
   const isAndroid = Platform.OS === "android";
+  const hasSearchQuery = dumpSearch.trim().length > 0;
+  const isSearching = isSearchFocused || hasSearchQuery;
 
   React.useEffect(() => {
     if (!isAndroid) {
@@ -110,9 +112,12 @@ export function DumpsScreen({
   }, [animateLayout, reduceMotionEnabled]);
 
   const handleSearchBlur = React.useCallback(() => {
-    animateLayout();
+    if (!hasSearchQuery) {
+      animateLayout();
+    }
+
     setIsSearchFocused(false);
-  }, [animateLayout]);
+  }, [animateLayout, hasSearchQuery]);
 
   const handleSearchDone = React.useCallback(() => {
     searchInputRef.current?.blur();
@@ -123,9 +128,6 @@ export function DumpsScreen({
     onDumpSearchChange("");
     searchInputRef.current?.blur();
   }, [animateLayout, onDumpSearchChange]);
-
-  const hasQuery = dumpSearch.trim().length > 0;
-  const isSearching = isSearchFocused || hasQuery;
 
   return (
     <KeyboardAvoidingView
@@ -210,7 +212,7 @@ export function DumpsScreen({
               <Pressable hitSlop={10} onPress={handleSearchDone}>
                 <Text style={sharedStyles.linkText}>Done</Text>
               </Pressable>
-            ) : hasQuery ? (
+            ) : hasSearchQuery ? (
               <Pressable hitSlop={10} onPress={handleSearchClear}>
                 <Text style={sharedStyles.linkText}>Clear</Text>
               </Pressable>
@@ -286,7 +288,7 @@ const styles = StyleSheet.create({
 });
 
 const SEARCH_LAYOUT_ANIMATION = {
-  duration: 180,
+  duration: 250,
   create: {
     type: LayoutAnimation.Types.easeInEaseOut,
     property: LayoutAnimation.Properties.opacity,
