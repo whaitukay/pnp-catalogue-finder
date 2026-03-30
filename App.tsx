@@ -17,6 +17,7 @@ import {
   loadManifestCache,
   loadSettings,
   rebuildAllCsvExports,
+  saveDump,
   saveSettings,
 } from "./src/services/catalogueStore";
 import {
@@ -395,49 +396,73 @@ export default function App(): React.ReactElement {
   );
 
   async function sendEmail(catalogueId: string): Promise<void> {
-    let entry = cachedCatalogues.find((item) => item.catalogueId === catalogueId) ?? null;
-
-    if (!entry && selectedDump?.catalogueId === catalogueId) {
-      try {
-        const manifest = await loadManifestCache();
-        entry = manifest.catalogues[catalogueId] ?? null;
-      } catch (error) {
-        setErrorText(errorMessage(error));
-        return;
-      }
-    }
-
-    if (!entry || !entry.dumpUri) {
-      Alert.alert("No catalogue selected", "That catalogue is not available for email.");
-      return;
-    }
-
     setIsGeneratingCsv(true);
-    setBusyLabel("Building CSV export...");
+    setBusyLabel("Preparing export...");
     setErrorText("");
 
     try {
-      const csvUri = await ensureCsvForDump(entry.dumpUri, entry.csvUri);
-      setBusyLabel("Opening email composer...");
+      const canEmail = await MailComposer.isAvailableAsync();
+      const canShare = canEmail ? false : await Sharing.isAvailableAsync();
+      if (!canEmail && !canShare) {
+        throw new Error("No email or file sharing app is available on this device.");
+      }
 
-      if (await MailComposer.isAvailableAsync()) {
+      let entry = cachedCatalogues.find((item) => item.catalogueId === catalogueId) ?? null;
+      const selectedDumpMatch = selectedDump?.catalogueId === catalogueId ? selectedDump : null;
+
+      if (!entry && selectedDumpMatch) {
+        try {
+          const manifest = await loadManifestCache();
+          entry = manifest.catalogues[catalogueId] ?? null;
+        } catch (error) {
+          console.warn("Failed to load manifest cache while preparing export", error);
+        }
+      }
+
+      let dumpUri: string | null = null;
+      let csvUriHint: string | undefined;
+      let label: string | null = null;
+      let metadata: ManifestEntry | CatalogueDump | null = null;
+
+      if (entry?.dumpUri) {
+        dumpUri = entry.dumpUri;
+        csvUriHint = entry.csvUri;
+        label = entry.label;
+        metadata = entry;
+      } else if (selectedDumpMatch) {
+        const persisted = await saveDump(selectedDumpMatch);
+        dumpUri = persisted.dumpUri;
+        csvUriHint = persisted.csvUri;
+        label = persisted.dump.label;
+        metadata = persisted.dump;
+      }
+
+      if (!dumpUri || !label || !metadata) {
+        Alert.alert("No catalogue selected", "That catalogue is not available for email.");
+        return;
+      }
+
+      setBusyLabel("Building CSV export...");
+      const csvUri = await ensureCsvForDump(dumpUri, csvUriHint);
+
+      if (canEmail) {
+        setBusyLabel("Opening email composer...");
         await MailComposer.composeAsync({
-          subject: defaultEmailSubject(entry),
-          body: defaultEmailBody(entry),
+          subject: defaultEmailSubject(metadata),
+          body: defaultEmailBody(metadata),
           attachments: [csvUri],
         });
-        setStatusMessage(`Email composer opened for ${entry.label}.`);
-      } else if (await Sharing.isAvailableAsync()) {
+        setStatusMessage(`Email composer opened for ${label}.`);
+      } else {
+        setBusyLabel("Opening share sheet...");
         await Sharing.shareAsync(csvUri, {
-          dialogTitle: `${entry.label} CSV`,
+          dialogTitle: `${label} CSV`,
           mimeType: "text/csv",
           UTI: "public.comma-separated-values-text",
         });
         setStatusMessage(
           "Mail composer is unavailable on this device, so the CSV was shared instead.",
         );
-      } else {
-        throw new Error("No email or file sharing app is available on this device.");
       }
     } catch (error) {
       setErrorText(errorMessage(error));
