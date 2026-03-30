@@ -1046,10 +1046,11 @@ async function exportTarget(
 
   const slug = target.slug ?? existingEntry?.slug ?? target.label;
   let label = target.label;
-  const targetSlugLike = target.slug ?? existingEntry?.slug ?? target.label;
+  const slugLike = target.slug ?? existingEntry?.slug;
   if (
     existingEntry &&
-    target.label === targetSlugLike &&
+    slugLike &&
+    target.label === slugLike &&
     existingEntry.label &&
     existingEntry.label !== existingEntry.slug
   ) {
