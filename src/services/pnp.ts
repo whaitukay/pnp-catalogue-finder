@@ -1047,10 +1047,11 @@ async function exportTarget(
   const slugLike = coalesceNonEmpty(target.slug, existingEntry?.slug);
   const slug = coalesceNonEmpty(slugLike, target.label) ?? target.label;
   let label = target.label;
+  const trimmedLabel = target.label.trim();
   if (
     existingEntry &&
     slugLike &&
-    target.label === slugLike &&
+    trimmedLabel === slugLike &&
     existingEntry.label &&
     existingEntry.label !== existingEntry.slug
   ) {
