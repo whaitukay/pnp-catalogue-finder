@@ -43,6 +43,7 @@ import type {
   CatalogueTarget,
   ExportFieldKey,
   ImportedCatalogue,
+  ImportedCatalogueSummary,
   ManifestEntry,
   SyncSummary,
 } from "./src/types";
@@ -119,9 +120,7 @@ export default function App(): React.ReactElement {
   const [cataloguePage, setCataloguePage] = useState(0);
   const [dumpRowsPage, setDumpRowsPage] = useState(0);
   const [dumpSearch, setDumpSearch] = useState("");
-  const [importsList, setImportsList] = useState<
-    Array<Omit<ImportedCatalogue, "items">>
-  >([]);
+  const [importsList, setImportsList] = useState<ImportedCatalogueSummary[]>([]);
   const [importsPage, setImportsPage] = useState(0);
   const [selectedImport, setSelectedImport] = useState<ImportedCatalogue | null>(null);
   const [importSearch, setImportSearch] = useState("");
@@ -358,7 +357,7 @@ export default function App(): React.ReactElement {
 
       setImportBusy(`Importing ${asset.name}...`);
 
-      const parsed = await parseImportFile(asset.uri, asset.name);
+      const parsed = await parseImportFile(asset.uri, asset.name, asset.mimeType);
       await saveImport(parsed);
       await refreshImportsList();
 

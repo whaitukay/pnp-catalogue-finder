@@ -3,14 +3,12 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 
 import { PaginationControls } from "../components/PaginationControls";
 import { BRAND, sharedStyles } from "../theme";
-import type { ImportedCatalogue } from "../types";
+import type { ImportedCatalogueSummary } from "../types";
 import { formatTimestamp } from "../utils/catalogueUi";
 
-type ImportSummary = Omit<ImportedCatalogue, "items">;
-
 type ImportsScreenProps = {
-  importsList: ImportSummary[];
-  pagedImportsList: ImportSummary[];
+  importsList: ImportedCatalogueSummary[];
+  pagedImportsList: ImportedCatalogueSummary[];
   importsPage: number;
   onImport: () => void;
   onDelete: (id: string) => void;

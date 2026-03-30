@@ -230,9 +230,11 @@ export type ImportedCatalogue = {
   items: ImportedItem[];
 };
 
+export type ImportedCatalogueSummary = Omit<ImportedCatalogue, "items">;
+
 export type ImportsManifest = {
   version: number;
-  imports: Record<string, Omit<ImportedCatalogue, "items">>;
+  imports: Record<string, ImportedCatalogueSummary>;
 };
 
 export type ProductCache = {

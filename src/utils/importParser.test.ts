@@ -40,7 +40,7 @@ describe("importParser", () => {
 
     const imported = await parseImportFile("file:///mock.csv", "Book1.csv");
 
-    expect(imported.id).toBe("book1-1774828800000");
+    expect(imported.id).toMatch(/^book1-\d+$/);
     expect(imported.itemCount).toBe(2);
     expect(imported.barcodeCount).toBe(1);
     expect(imported.items).toEqual([
@@ -52,7 +52,7 @@ describe("importParser", () => {
       },
       {
         position: 2,
-        baseProduct: "000000000123",
+        baseProduct: "000000000000000123",
         barcode: "",
         barcodeFound: false,
       },

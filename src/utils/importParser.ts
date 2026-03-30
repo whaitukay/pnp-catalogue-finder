@@ -4,6 +4,8 @@ import * as XLSX from "xlsx";
 import { safeFileName } from "../services/catalogueStore";
 import type { ImportedCatalogue, ImportedItem } from "../types";
 
+const BASE_PRODUCT_LENGTH = 18;
+
 function stripFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
   if (lastDot <= 0) {
@@ -28,8 +30,8 @@ function normalizeBaseProduct(value: unknown): string {
     return "";
   }
 
-  if (digits.length > 0 && digits.length < 12) {
-    return digits.padStart(12, "0");
+  if (digits.length > 0 && digits.length < BASE_PRODUCT_LENGTH) {
+    return digits.padStart(BASE_PRODUCT_LENGTH, "0");
   }
 
   return digits;
@@ -69,16 +71,20 @@ function parseWorksheetRows(sheet: XLSX.WorkSheet): unknown[][] {
 export async function parseImportFile(
   uri: string,
   filename: string,
+  mimeType?: string,
 ): Promise<ImportedCatalogue> {
   const lowered = filename.toLowerCase();
-  const extension = lowered.slice(lowered.lastIndexOf(".") + 1);
+  const extensionIndex = lowered.lastIndexOf(".");
+  const extension = extensionIndex >= 0 ? lowered.slice(extensionIndex + 1) : "";
+  const isCsv =
+    mimeType?.toLowerCase().includes("csv") || extension === "csv" || extension === "txt";
   const importedAt = Date.now();
   const name = stripFileExtension(filename).trim() || "Imported catalogue";
   const id = `${safeFileName(name)}-${importedAt}`;
 
   let workbook: XLSX.WorkBook;
 
-  if (extension === "csv") {
+  if (isCsv) {
     const raw = await FileSystem.readAsStringAsync(uri, {
       encoding: FileSystem.EncodingType.UTF8,
     });

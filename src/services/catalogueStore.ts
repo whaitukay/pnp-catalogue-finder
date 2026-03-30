@@ -14,6 +14,7 @@ import type {
   ExportFieldKey,
   ImportedCatalogue,
   ImportedItem,
+  ImportedCatalogueSummary,
   ManifestCache,
   ManifestEntry,
   ImportsManifest,
@@ -245,8 +246,8 @@ function normalizeImportedCatalogueValue(catalogue: unknown): ImportedCatalogue 
 
 function normalizeImportedCatalogueSummary(
   summary: unknown,
-): Omit<ImportedCatalogue, "items"> {
-  const raw = summary as Omit<ImportedCatalogue, "items"> | null;
+): ImportedCatalogueSummary {
+  const raw = summary as ImportedCatalogueSummary | null;
   return {
     id: normalizeText(raw?.id),
     name: normalizeText(raw?.name),
@@ -660,7 +661,7 @@ export async function loadImport(id: string): Promise<ImportedCatalogue | null> 
   return raw ? normalizeImportedCatalogueValue(raw) : null;
 }
 
-export async function listImports(): Promise<Array<Omit<ImportedCatalogue, "items">>> {
+export async function listImports(): Promise<ImportedCatalogueSummary[]> {
   const manifest = await loadImportsManifest();
 
   return Object.values(manifest.imports).sort((left, right) => {
