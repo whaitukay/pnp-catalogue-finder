@@ -185,7 +185,7 @@ function normalizeDumpValue(dump: unknown): CatalogueDump {
     catalogueStartDate,
     catalogueEndDate,
     expired: isExpired(catalogueEndDate),
-    csvUri: normalizeText(raw?.csvUri),
+    csvUri: normalizeNullableText(raw?.csvUri) ?? undefined,
     rows,
   };
 }
@@ -404,18 +404,16 @@ export async function fileExists(uri: string): Promise<boolean> {
 
 export async function saveDump(
   dump: CatalogueDump,
-): Promise<{ dump: CatalogueDump; dumpUri: string; csvUri: string }> {
+): Promise<{ dump: CatalogueDump; dumpUri: string; csvUri?: string }> {
   await ensureStorage();
 
-  const settings = await loadSettings();
   const normalizedDump = normalizeDumpValue(dump);
   const { csvUri, dumpUri } = buildDumpPaths(normalizedDump);
   const persistedDump: CatalogueDump = {
     ...normalizedDump,
-    csvUri,
+    csvUri: undefined,
   };
 
-  await writeCsvForDump(persistedDump, csvUri, settings.exportFields);
   await writeJson(dumpUri, persistedDump);
 
   return {
@@ -425,10 +423,34 @@ export async function saveDump(
   };
 }
 
+export async function ensureCsvForDump(dumpUri: string, csvUri?: string): Promise<string> {
+  await ensureStorage();
+
+  const dump = await loadDumpByUri(dumpUri);
+  if (!dump) {
+    throw new Error("That catalogue dump is no longer available.");
+  }
+
+  const normalizedCsvUri = normalizeNullableText(csvUri);
+  const { csvUri: resolvedCsvUri } = buildDumpPaths({
+    ...dump,
+    csvUri: normalizedCsvUri ?? dump.csvUri,
+  });
+
+  if (await fileExists(resolvedCsvUri)) {
+    return resolvedCsvUri;
+  }
+
+  const settings = await loadSettings();
+  await writeCsvForDump(dump, resolvedCsvUri, settings.exportFields);
+  return resolvedCsvUri;
+}
+
 export async function rebuildAllCsvExports(): Promise<number> {
   await ensureStorage();
 
   const manifest = await loadManifestCache();
+  const settings = await loadSettings();
   let rewrittenCount = 0;
 
   for (const [catalogueId, entry] of Object.entries(manifest.catalogues)) {
@@ -441,14 +463,16 @@ export async function rebuildAllCsvExports(): Promise<number> {
       continue;
     }
 
-    const persisted = await saveDump({
-      ...dump,
-      csvUri: entry.csvUri || dump.csvUri,
-    });
+    const persisted = await saveDump({ ...dump, csvUri: entry.csvUri || dump.csvUri });
+    const exportCsvUri = persisted.csvUri || entry.csvUri;
+
+    if (exportCsvUri) {
+      await writeCsvForDump(persisted.dump, exportCsvUri, settings.exportFields);
+    }
 
     manifest.catalogues[catalogueId] = {
       ...entry,
-      csvUri: persisted.csvUri,
+      ...(exportCsvUri ? { csvUri: exportCsvUri } : {}),
       dumpUri: persisted.dumpUri,
       expired: persisted.dump.expired,
       itemCount: persisted.dump.itemCount,

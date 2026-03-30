@@ -1,7 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Image, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -10,6 +10,7 @@ import {
   DEFAULT_SETTINGS,
   defaultEmailBody,
   defaultEmailSubject,
+  ensureCsvForDump,
   ensureStorage,
   listCachedCatalogues,
   loadDump,
@@ -91,6 +92,7 @@ export default function App(): React.ReactElement {
   const [siteTargets, setSiteTargets] = useState<CatalogueTarget[]>([]);
   const [cachedCatalogues, setCachedCatalogues] = useState<ManifestEntry[]>([]);
   const [selectedDump, setSelectedDump] = useState<CatalogueDump | null>(null);
+  const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
   const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorText, setErrorText] = useState("");
@@ -151,29 +153,58 @@ export default function App(): React.ReactElement {
     setDumpRowsPage(0);
   }, [dumpSearch, filteredDumpRows.length, selectedDump?.catalogueId]);
 
-  async function persistSettings(
-    overrides?: Partial<AppSettings>,
-  ): Promise<AppSettings> {
-    const nextSettings: AppSettings = {
-      storeCode: normalizeStoreCode(overrides?.storeCode ?? storeCode),
-      hideExpiredCatalogues:
-        overrides?.hideExpiredCatalogues ?? hideExpiredCatalogues,
-      exportFields: normalizeExportFields(overrides?.exportFields ?? exportFields),
-    };
+  const lastDownloadProgressRef = useRef<{ updatedAt: number; percent: number | null }>({
+    updatedAt: 0,
+    percent: null,
+  });
 
-    await saveSettings(nextSettings);
-    setStoreCode(nextSettings.storeCode);
-    setHideExpiredCatalogues(nextSettings.hideExpiredCatalogues);
-    setExportFields(nextSettings.exportFields);
-    setSavedSettings(nextSettings);
-    return nextSettings;
-  }
+  const reportDownloadProgress = useCallback(
+    (progress: number) => {
+      const nextPercent = Math.round(progress * 100);
+      const now = Date.now();
+      const { percent: lastPercent, updatedAt } = lastDownloadProgressRef.current;
+      const progressDelta = lastPercent == null ? Infinity : Math.abs(nextPercent - lastPercent);
 
-  async function refreshCatalogueData(options?: {
+      const shouldUpdate =
+        nextPercent >= 100 ||
+        lastPercent == null ||
+        now - updatedAt >= 100 ||
+        progressDelta >= 5;
+
+      if (!shouldUpdate) {
+        return;
+      }
+
+      lastDownloadProgressRef.current = { updatedAt: now, percent: nextPercent };
+      setDownloadProgressPercent(nextPercent);
+    },
+    [setDownloadProgressPercent],
+  );
+
+  const persistSettings = useCallback(
+    async (overrides?: Partial<AppSettings>): Promise<AppSettings> => {
+      const nextSettings: AppSettings = {
+        storeCode: normalizeStoreCode(overrides?.storeCode ?? storeCode),
+        hideExpiredCatalogues:
+          overrides?.hideExpiredCatalogues ?? hideExpiredCatalogues,
+        exportFields: normalizeExportFields(overrides?.exportFields ?? exportFields),
+      };
+
+      await saveSettings(nextSettings);
+      setStoreCode(nextSettings.storeCode);
+      setHideExpiredCatalogues(nextSettings.hideExpiredCatalogues);
+      setExportFields(nextSettings.exportFields);
+      setSavedSettings(nextSettings);
+      return nextSettings;
+    },
+    [exportFields, hideExpiredCatalogues, storeCode],
+  );
+
+  const refreshCatalogueData = useCallback(async (options?: {
     nextStoreCode?: string;
     showBusy?: boolean;
     showLoadedMessage?: boolean;
-  }): Promise<void> {
+  }): Promise<void> => {
     const targetStoreCode = normalizeStoreCode(options?.nextStoreCode ?? storeCode);
 
     if (options?.showBusy !== false) {
@@ -221,7 +252,7 @@ export default function App(): React.ReactElement {
         setBusyLabel("");
       }
     }
-  }
+  }, [storeCode]);
 
   useEffect(() => {
     const bootstrap = async (): Promise<void> => {
@@ -285,42 +316,51 @@ export default function App(): React.ReactElement {
     }
   }
 
-  async function pullSingleCatalogue(item: DirectoryItem): Promise<void> {
-    setDownloadingCatalogueId(item.catalogueId);
-    setDownloadProgressPercent(0);
-    setBusyLabel(`Pulling ${item.label}...`);
-    setErrorText("");
-    setStatusMessage("");
+  const pullSingleCatalogue = useCallback(
+    async (item: DirectoryItem): Promise<void> => {
+      lastDownloadProgressRef.current = { updatedAt: 0, percent: null };
+      setDownloadingCatalogueId(item.catalogueId);
+      setDownloadProgressPercent(0);
+      setBusyLabel(`Pulling ${item.label}...`);
+      setErrorText("");
+      setStatusMessage("");
 
-    try {
-      const nextSettings = await persistSettings();
-      const outcome = await scanCatalogue(
-        item.pullSource,
-        nextSettings.storeCode,
-        false,
-        item.label,
-        (progress) => {
-          setDownloadProgressPercent(Math.round(progress * 100));
-        },
-      );
-      await refreshCatalogueData({
-        nextStoreCode: nextSettings.storeCode,
-        showBusy: false,
-        showLoadedMessage: false,
-      });
-      setStatusMessage(
-        `${outcome.dump.label}: ${outcome.result.barcodesFound}/${outcome.result.itemCount} barcodes found.`,
-      );
-    } catch (error) {
-      setErrorText(errorMessage(error));
-    } finally {
-      setDownloadingCatalogueId(null);
-      setDownloadProgressPercent(null);
-      setBusyLabel("");
-    }
-  }
+      try {
+        const nextSettings = await persistSettings();
+        const outcome = await scanCatalogue(
+          item.pullSource,
+          nextSettings.storeCode,
+          false,
+          item.label,
+          reportDownloadProgress,
+        );
+        await refreshCatalogueData({
+          nextStoreCode: nextSettings.storeCode,
+          showBusy: false,
+          showLoadedMessage: false,
+        });
+        setStatusMessage(
+          `${outcome.dump.label}: ${outcome.result.barcodesFound}/${outcome.result.itemCount} barcodes found.`,
+        );
+      } catch (error) {
+        setErrorText(errorMessage(error));
+      } finally {
+        setDownloadingCatalogueId(null);
+        setDownloadProgressPercent(null);
+        setBusyLabel("");
+      }
+    },
+    [persistSettings, refreshCatalogueData, reportDownloadProgress],
+  );
 
-  async function openDump(catalogueId: string): Promise<void> {
+  const handlePullItem = useCallback(
+    (item: DirectoryItem) => {
+      void pullSingleCatalogue(item);
+    },
+    [pullSingleCatalogue],
+  );
+
+  const openDump = useCallback(async (catalogueId: string): Promise<void> => {
     setBusyLabel("Opening cached dump...");
     setErrorText("");
 
@@ -338,31 +378,40 @@ export default function App(): React.ReactElement {
     } finally {
       setBusyLabel("");
     }
-  }
+  }, []);
+
+  const handleOpenDump = useCallback(
+    (catalogueId: string) => {
+      void openDump(catalogueId);
+    },
+    [openDump],
+  );
 
   async function sendEmail(catalogueId: string): Promise<void> {
-    const entry =
-      cachedCatalogues.find((item) => item.catalogueId === catalogueId) ??
-      (selectedDump?.catalogueId === catalogueId ? selectedDump : null);
+    const entry = cachedCatalogues.find((item) => item.catalogueId === catalogueId) ?? null;
 
-    if (!entry) {
+    if (!entry || !entry.dumpUri) {
       Alert.alert("No catalogue selected", "That catalogue is not available for email.");
       return;
     }
 
-    setBusyLabel("Opening email composer...");
+    setIsGeneratingCsv(true);
+    setBusyLabel("Building CSV export...");
     setErrorText("");
 
     try {
+      const csvUri = await ensureCsvForDump(entry.dumpUri, entry.csvUri);
+      setBusyLabel("Opening email composer...");
+
       if (await MailComposer.isAvailableAsync()) {
         await MailComposer.composeAsync({
           subject: defaultEmailSubject(entry),
           body: defaultEmailBody(entry),
-          attachments: [entry.csvUri],
+          attachments: [csvUri],
         });
         setStatusMessage(`Email composer opened for ${entry.label}.`);
       } else if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(entry.csvUri, {
+        await Sharing.shareAsync(csvUri, {
           dialogTitle: `${entry.label} CSV`,
           mimeType: "text/csv",
           UTI: "public.comma-separated-values-text",
@@ -376,6 +425,7 @@ export default function App(): React.ReactElement {
     } catch (error) {
       setErrorText(errorMessage(error));
     } finally {
+      setIsGeneratingCsv(false);
       setBusyLabel("");
     }
   }
@@ -484,6 +534,7 @@ export default function App(): React.ReactElement {
                   dumpRowsPage={dumpRowsPage}
                   dumpSearch={dumpSearch}
                   filteredDumpRows={filteredDumpRows}
+                  isGeneratingCsv={isGeneratingCsv}
                   onBackToCatalogues={() => {
                     setSelectedDump(null);
                     setActiveTab("catalogues");
@@ -508,15 +559,11 @@ export default function App(): React.ReactElement {
                   onForceRefresh={() => {
                     void runPull(true);
                   }}
-                  onOpenDump={(catalogueId) => {
-                    void openDump(catalogueId);
-                  }}
+                  onOpenDump={handleOpenDump}
                   onPullAll={() => {
                     void runPull(false);
                   }}
-                  onPullItem={(item) => {
-                    void pullSingleCatalogue(item);
-                  }}
+                  onPullItem={handlePullItem}
                   onRefreshList={() => {
                     void refreshCatalogueData();
                   }}

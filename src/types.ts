@@ -168,7 +168,7 @@ export type CatalogueDump = {
   catalogueStartDate: number | null;
   catalogueEndDate: number | null;
   expired: boolean;
-  csvUri: string;
+  csvUri?: string;
   rows: ProductRow[];
 };
 
