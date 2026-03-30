@@ -10,8 +10,22 @@ describe("barcodes", () => {
     });
   });
 
+  it("treats 2* EAN-13 values with a valid check digit as EAN-13", () => {
+    expect(normalizeBarcodeForRendering("2000000000008")).toEqual({
+      format: "EAN13",
+      value: "2000000000008",
+    });
+  });
+
   it("accepts valid EAN-13 inputs", () => {
     expect(normalizeBarcodeForRendering("6001000000001")).toEqual({
+      format: "EAN13",
+      value: "6001000000001",
+    });
+  });
+
+  it("strips non-digit formatting characters before validating", () => {
+    expect(normalizeBarcodeForRendering("6001-0000-0000-1")).toEqual({
       format: "EAN13",
       value: "6001000000001",
     });
@@ -32,6 +46,24 @@ describe("barcodes", () => {
     expect(normalizeBarcodeForRendering("73513537")).toEqual({
       format: "EAN8",
       value: "73513537",
+    });
+  });
+
+  it("normalizes 7-digit EAN-8 bodies by appending the computed check digit", () => {
+    expect(normalizeBarcodeForRendering("5512345")).toEqual({
+      format: "EAN8",
+      value: "55123457",
+    });
+  });
+
+  it("rejects invalid EAN-8 inputs", () => {
+    expect(normalizeBarcodeForRendering("73513538")).toBeNull();
+  });
+
+  it("treats non-UPCA 12-digit inputs as EAN-13 bodies with a computed check digit", () => {
+    expect(normalizeBarcodeForRendering("123456789013")).toEqual({
+      format: "EAN13",
+      value: "1234567890135",
     });
   });
 });

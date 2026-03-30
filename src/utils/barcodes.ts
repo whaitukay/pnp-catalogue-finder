@@ -3,24 +3,34 @@ export type RenderableBarcode = {
   value: string;
 };
 
+/**
+* Normalizes a raw barcode string into a renderable format + payload.
+*
+* Intended for rendering only: it may strip formatting characters and append or recompute check
+* digits for some formats.
+*/
 export function normalizeBarcodeForRendering(value: string): RenderableBarcode | null {
-  const digits = value.replace(/\D/g, "");
+  const raw = value.trim();
+  const digits = raw.replace(/\D/g, "");
 
   if (!digits) {
     return null;
   }
 
-  // PnP occasionally returns scale codes (reserved `2*` prefix) that are not EAN-13 compliant.
-  // bwip-js is strict about EAN checksum validation, so render those as Code 128 without
-  // modifying the payload.
-  if (digits.length === 13 && digits.startsWith("2")) {
-    return { format: "CODE128", value: digits };
-  }
-
   if (digits.length === 13) {
     const body = digits.slice(0, 12);
     const checkDigit = digits[12];
-    if (checkDigit !== ean13CheckDigit(body)) {
+    const expectedCheckDigit = ean13CheckDigit(body);
+
+    // PnP occasionally returns scale codes (reserved `2*` prefix) that are not EAN-13 compliant.
+    // bwip-js is strict about EAN checksum validation, so render those as Code 128 without
+    // changing the digits.
+    if (digits.startsWith("2") && checkDigit !== expectedCheckDigit) {
+      const payload = /^\d+$/.test(raw) ? raw : digits;
+      return { format: "CODE128", value: payload };
+    }
+
+    if (checkDigit !== expectedCheckDigit) {
       return null;
     }
 

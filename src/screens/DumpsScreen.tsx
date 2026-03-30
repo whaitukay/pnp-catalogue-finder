@@ -169,11 +169,10 @@ const styles = StyleSheet.create({
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   const rawBarcode = typeof row.barcode === "string" ? row.barcode : "";
-  const barcodeDigits = rawBarcode.replace(/\D/g, "");
-  const hasBarcodeDigits = barcodeDigits.length > 0;
+  const hasBarcodeDigits = /\d/.test(rawBarcode);
   const normalizedBarcode = React.useMemo(
-    () => normalizeBarcodeForRendering(barcodeDigits),
-    [barcodeDigits],
+    () => normalizeBarcodeForRendering(rawBarcode),
+    [rawBarcode],
   );
   const [barcodeError, setBarcodeError] = React.useState(false);
   const barcodeToShow = barcodeError ? null : normalizedBarcode;
@@ -183,7 +182,7 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
 
   React.useEffect(() => {
     setBarcodeError(false);
-  }, [barcodeDigits, normalizedBarcode?.format, normalizedBarcode?.value]);
+  }, [rawBarcode, normalizedBarcode?.format, normalizedBarcode?.value]);
 
   return (
     <View style={sharedStyles.card}>
@@ -258,8 +257,7 @@ function BarcodeImage({
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          console.warn("Failed to generate barcode image", {
-            format,
+          console.warn(`Failed to generate barcode image (${format})`, {
             valueLength: value.length,
             error,
           });
