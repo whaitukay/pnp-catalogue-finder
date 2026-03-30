@@ -72,7 +72,7 @@ export function DumpsScreen({
       }
     });
 
-    if (Platform.OS !== "web" && typeof AccessibilityInfo.addEventListener === "function") {
+    if (typeof AccessibilityInfo.addEventListener === "function") {
       subscription = AccessibilityInfo.addEventListener(
         "reduceMotionChanged",
         (value: boolean) => {
@@ -88,7 +88,7 @@ export function DumpsScreen({
   }, []);
 
   const animateLayout = React.useCallback(() => {
-    if (reduceMotionEnabled || Platform.OS === "web") {
+    if (reduceMotionEnabled) {
       return;
     }
 
