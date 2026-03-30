@@ -61,7 +61,7 @@ export function formatDateRange(
   if (endDate) {
     return `Ends ${formatPromotionDate(endDate)}`;
   }
-  return "No promotion dates found yet";
+  return "No catalogue dates found";
 }
 
 export function arraysEqual(left: string[], right: string[]): boolean {
@@ -108,10 +108,6 @@ export function buildDirectoryItems(
   cachedCatalogues: ManifestEntry[],
   storeCode: string,
   hideExpiredCatalogues: boolean,
-  provisionalWindows?: Record<
-    string,
-    { promotionStartDate: number | null; promotionEndDate: number | null }
-  >,
 ): DirectoryItem[] {
   const cachedById = new Map(
     cachedCatalogues.map((entry) => [entry.catalogueId, entry] as const),
@@ -122,14 +118,10 @@ export function buildDirectoryItems(
   for (const target of siteTargets) {
     const catalogueId = catalogueIdForTarget(storeCode, target);
     const cached = cachedById.get(catalogueId);
-    const provisional = provisionalWindows?.[catalogueId];
     const catalogueStartDate =
       target.catalogueStartDate ?? cached?.catalogueStartDate ?? null;
     const catalogueEndDate =
       target.catalogueEndDate ?? cached?.catalogueEndDate ?? null;
-    const promotionEndDate =
-      cached?.promotionEndDate ?? provisional?.promotionEndDate ?? null;
-    const effectiveEndDate = promotionEndDate ?? catalogueEndDate;
     usedIds.add(catalogueId);
 
     merged.push({
@@ -152,9 +144,7 @@ export function buildDirectoryItems(
       exportedAt: cached?.exportedAt ?? null,
       catalogueStartDate,
       catalogueEndDate,
-      promotionStartDate: cached?.promotionStartDate ?? provisional?.promotionStartDate ?? null,
-      promotionEndDate,
-      expired: getCatalogueTimingStatus(null, effectiveEndDate) === "expired",
+      expired: getCatalogueTimingStatus(catalogueStartDate, catalogueEndDate) === "expired",
       csvUri: cached?.csvUri || "",
       dumpUri: cached?.dumpUri || "",
       pullSource: target.sourceUrl || target.query || target.slug || target.label,
@@ -183,9 +173,7 @@ export function buildDirectoryItems(
       exportedAt: cached.exportedAt,
       catalogueEndDate: cached.catalogueEndDate,
       catalogueStartDate: cached.catalogueStartDate,
-      promotionStartDate: cached.promotionStartDate,
-      promotionEndDate: cached.promotionEndDate,
-      expired: getCatalogueTimingStatus(null, cached.promotionEndDate ?? cached.catalogueEndDate) === "expired",
+      expired: getCatalogueTimingStatus(cached.catalogueStartDate, cached.catalogueEndDate) === "expired",
       csvUri: cached.csvUri,
       dumpUri: cached.dumpUri,
       pullSource: cached.sourceUrl || cached.query || cached.slug || cached.label,

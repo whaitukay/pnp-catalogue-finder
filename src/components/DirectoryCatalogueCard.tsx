@@ -56,11 +56,9 @@ export function DirectoryCatalogueCard({
 }: DirectoryCatalogueCardProps): React.ReactElement {
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const safeAreaInsets = useSafeAreaInsets();
-  const effectiveStartDate = item.promotionStartDate ?? item.catalogueStartDate;
-  const effectiveEndDate = item.promotionEndDate ?? item.catalogueEndDate;
   const timingStatus = getCatalogueTimingStatus(
-    effectiveStartDate,
-    effectiveEndDate,
+    item.catalogueStartDate,
+    item.catalogueEndDate,
   );
   const [thumbnailLoadFailed, setThumbnailLoadFailed] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);

@@ -52,8 +52,8 @@ export function EmailScreen({
         pagedEmailCatalogues.map((item) => {
           const selected = item.catalogueId === selectedEmailId;
           const timingStatus = getCatalogueTimingStatus(
-            item.promotionStartDate,
-            item.promotionEndDate,
+            item.catalogueStartDate,
+            item.catalogueEndDate,
           );
           return (
             <Pressable
@@ -76,7 +76,7 @@ export function EmailScreen({
                 ) : null}
               </View>
               <Text style={[sharedStyles.metaText, selected && styles.selectCardMetaActive]}>
-                {item.barcodeCount}/{item.itemCount} barcodes | {formatDateRange(item.promotionStartDate, item.promotionEndDate)}
+                {item.barcodeCount}/{item.itemCount} barcodes | {formatDateRange(item.catalogueStartDate, item.catalogueEndDate)}
               </Text>
             </Pressable>
           );
@@ -143,8 +143,8 @@ function ViewIntro(): React.ReactElement {
 
 function ViewSummary({ entry }: { entry: ManifestEntry }): React.ReactElement {
   const timingStatus = getCatalogueTimingStatus(
-    entry.promotionStartDate,
-    entry.promotionEndDate,
+    entry.catalogueStartDate,
+    entry.catalogueEndDate,
   );
 
   return (
@@ -165,7 +165,7 @@ function ViewSummary({ entry }: { entry: ManifestEntry }): React.ReactElement {
         {entry.barcodeCount}/{entry.itemCount} barcodes | updated {formatTimestamp(entry.exportedAt)}
       </Text>
       <Text style={sharedStyles.metaText}>
-        {formatDateRange(entry.promotionStartDate, entry.promotionEndDate)}
+        {formatDateRange(entry.catalogueStartDate, entry.catalogueEndDate)}
       </Text>
     </ViewSummaryShell>
   );

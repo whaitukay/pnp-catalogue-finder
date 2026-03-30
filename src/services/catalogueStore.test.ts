@@ -45,17 +45,8 @@ describe("catalogueStore CSV dump", () => {
           barcode: "6001000000001",
           price: "R55.99",
           promotion: "Combo For R100.00",
-          promotionStartDate: Date.parse("2026-03-26T22:00:00.000Z"),
-          promotionEndDate: Date.parse("2026-03-27T21:59:59.000Z"),
           promotionRanges:
             "2026-03-26T22:00:00+0000 -> 2026-03-27T21:59:59+0000 [Combo For R100.00]",
-          promotions: [
-            {
-              text: "Combo For R100.00",
-              startDate: Date.parse("2026-03-26T22:00:00.000Z"),
-              endDate: Date.parse("2026-03-27T21:59:59.000Z"),
-            },
-          ],
           productUrl: "https://www.pnp.co.za/pnp-beef-burger-400g/p/000000000000886223_EA",
           barcodeFound: true,
           error: "",

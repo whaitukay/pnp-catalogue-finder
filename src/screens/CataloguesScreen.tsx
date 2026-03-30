@@ -157,9 +157,9 @@ export function CataloguesScreen({
               <Text style={sharedStyles.metaText}>
                 {item.status} | {item.barcodesFound}/{item.itemCount} barcodes
               </Text>
-              {(item.promotionStartDate || item.promotionEndDate) ? (
+              {(item.catalogueStartDate || item.catalogueEndDate) ? (
                 <Text style={sharedStyles.metaText}>
-                  {formatDateRange(item.promotionStartDate, item.promotionEndDate)}
+                  {formatDateRange(item.catalogueStartDate, item.catalogueEndDate)}
                 </Text>
               ) : null}
               {item.message ? <Text style={sharedStyles.errorSmall}>{item.message}</Text> : null}
