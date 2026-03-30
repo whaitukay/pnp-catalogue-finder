@@ -64,9 +64,22 @@ export function DumpsScreen({
   const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(true);
   const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
   const searchInputRef = React.useRef<React.ElementRef<typeof TextInput>>(null);
+  const searchQueryRef = React.useRef(dumpSearch);
   const isAndroid = Platform.OS === "android";
   const hasSearchQuery = dumpSearch.trim().length > 0;
   const isSearching = isSearchFocused || hasSearchQuery;
+
+  React.useEffect(() => {
+    searchQueryRef.current = dumpSearch;
+  }, [dumpSearch]);
+
+  const handleDumpSearchChange = React.useCallback(
+    (value: string) => {
+      searchQueryRef.current = value;
+      onDumpSearchChange(value);
+    },
+    [onDumpSearchChange],
+  );
 
   React.useEffect(() => {
     if (!isAndroid) {
@@ -112,12 +125,14 @@ export function DumpsScreen({
   }, [animateLayout, reduceMotionEnabled]);
 
   const handleSearchBlur = React.useCallback(() => {
-    if (!hasSearchQuery) {
+    const hasSearchQueryNow = searchQueryRef.current.trim().length > 0;
+
+    if (!hasSearchQueryNow) {
       animateLayout();
     }
 
     setIsSearchFocused(false);
-  }, [animateLayout, hasSearchQuery]);
+  }, [animateLayout]);
 
   const handleSearchDone = React.useCallback(() => {
     searchInputRef.current?.blur();
@@ -125,8 +140,8 @@ export function DumpsScreen({
 
   const handleSearchClear = React.useCallback(() => {
     animateLayout();
-    onDumpSearchChange("");
-  }, [animateLayout, onDumpSearchChange]);
+    handleDumpSearchChange("");
+  }, [animateLayout, handleDumpSearchChange]);
 
   return (
     <KeyboardAvoidingView
@@ -222,7 +237,7 @@ export function DumpsScreen({
             autoCorrect={false}
             blurOnSubmit
             onBlur={handleSearchBlur}
-            onChangeText={onDumpSearchChange}
+            onChangeText={handleDumpSearchChange}
             onFocus={handleSearchFocus}
             onSubmitEditing={handleSearchDone}
             ref={searchInputRef}
