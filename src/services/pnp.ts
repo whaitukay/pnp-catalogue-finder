@@ -825,7 +825,6 @@ async function exportTarget(
     existingEntry &&
     existingEntry.query === target.query &&
     arrayEquals(existingEntry.productCodes, productCodes) &&
-    (await fileExists(existingEntry.csvUri)) &&
     (await fileExists(existingEntry.dumpUri))
   ) {
     onProgress?.(1);
@@ -876,7 +875,6 @@ async function exportTarget(
     catalogueStartDate: dumpStartDate,
     catalogueEndDate: dumpEndDate,
     expired: isExpired(effectiveEndDate),
-    csvUri: "",
     rows,
   };
 
@@ -900,7 +898,7 @@ async function exportTarget(
     catalogueStartDate: persisted.dump.catalogueStartDate,
     catalogueEndDate: persisted.dump.catalogueEndDate,
     expired: isExpired(effectiveEndDate),
-    csvUri: persisted.csvUri,
+    csvUri: persisted.csvUri || existingEntry?.csvUri || "",
     dumpUri: persisted.dumpUri,
   };
   await saveManifestCache(manifest);

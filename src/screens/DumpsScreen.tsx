@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AccessibilityInfo,
+  ActivityIndicator,
   Image,
   LayoutAnimation,
   KeyboardAvoidingView,
@@ -22,7 +23,7 @@ import * as bwipjs from "@bwip-js/react-native";
 
 import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge } from "../components/StatusBadge";
-import { sharedStyles } from "../theme";
+import { BRAND, sharedStyles } from "../theme";
 import type { CatalogueDump, ProductRow } from "../types";
 import {
   ean13ToRawSbs,
@@ -41,6 +42,7 @@ type DumpsScreenProps = {
   filteredDumpRows: ProductRow[];
   pagedDumpRows: ProductRow[];
   dumpRowsPage: number;
+  isGeneratingCsv: boolean;
   onBackToCatalogues: () => void;
   onEmailDump: (catalogueId: string) => void;
   onDumpSearchChange: (value: string) => void;
@@ -53,6 +55,7 @@ export function DumpsScreen({
   filteredDumpRows,
   pagedDumpRows,
   dumpRowsPage,
+  isGeneratingCsv,
   onBackToCatalogues,
   onEmailDump,
   onDumpSearchChange,
@@ -168,10 +171,21 @@ export function DumpsScreen({
                 <Text style={sharedStyles.secondaryButtonText}>Back to catalogues</Text>
               </Pressable>
               <Pressable
+                disabled={isGeneratingCsv}
                 onPress={() => onEmailDump(selectedDump.catalogueId)}
-                style={sharedStyles.primaryButton}
+                style={[
+                  sharedStyles.primaryButton,
+                  isGeneratingCsv ? styles.emailButtonDisabled : null,
+                ]}
               >
-                <Text style={sharedStyles.primaryButtonText}>Email this CSV</Text>
+                <View style={styles.emailButtonRow}>
+                  {isGeneratingCsv ? (
+                    <ActivityIndicator color={BRAND.white} size="small" />
+                  ) : null}
+                  <Text style={sharedStyles.primaryButtonText}>
+                    {isGeneratingCsv ? "Building CSV..." : "Email this CSV"}
+                  </Text>
+                </View>
               </Pressable>
             </View>
 
@@ -275,6 +289,14 @@ export function DumpsScreen({
 }
 
 const styles = StyleSheet.create({
+  emailButtonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  emailButtonDisabled: {
+    opacity: 0.7,
+  },
   searchTitleRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -46,7 +46,7 @@ type DirectoryCatalogueCardProps = {
 * @param onOpenDump - Callback invoked with the item's `catalogueId` when "View" is pressed (rendered only when the item is cached).
  * @returns A React element representing the catalogue card.
  */
-export function DirectoryCatalogueCard({
+function DirectoryCatalogueCardBase({
   item,
   isDownloading,
   downloadProgressPercent,
@@ -221,6 +221,25 @@ export function DirectoryCatalogueCard({
     </View>
   );
 }
+
+function directoryCatalogueCardPropsEqual(
+  prev: DirectoryCatalogueCardProps,
+  next: DirectoryCatalogueCardProps,
+): boolean {
+  return (
+    prev.item === next.item &&
+    prev.isDownloading === next.isDownloading &&
+    prev.downloadProgressPercent === next.downloadProgressPercent &&
+    prev.pullDisabled === next.pullDisabled &&
+    prev.onPull === next.onPull &&
+    prev.onOpenDump === next.onOpenDump
+  );
+}
+
+export const DirectoryCatalogueCard = React.memo(
+  DirectoryCatalogueCardBase,
+  directoryCatalogueCardPropsEqual,
+);
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));

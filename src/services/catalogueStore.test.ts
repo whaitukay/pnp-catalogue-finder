@@ -1,24 +1,35 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CatalogueDump } from "../types";
 
-const fsMock = vi.hoisted(() => ({
-  documentDirectory: "file:///mock-docs/",
-  cacheDirectory: "file:///mock-cache/",
-  EncodingType: { UTF8: "utf8" },
-  makeDirectoryAsync: vi.fn(async () => undefined),
-  getInfoAsync: vi.fn(async () => ({ exists: false })),
-  readAsStringAsync: vi.fn(async () => ""),
-  writeAsStringAsync: vi.fn(async () => undefined),
-}));
+const fsMock = vi.hoisted(() => {
+  const files = new Map<string, string>();
+
+  return {
+    files,
+    documentDirectory: "file:///mock-docs/",
+    cacheDirectory: "file:///mock-cache/",
+    EncodingType: { UTF8: "utf8" },
+    makeDirectoryAsync: vi.fn(async () => undefined),
+    getInfoAsync: vi.fn(async (uri: string) => ({ exists: files.has(uri) })),
+    readAsStringAsync: vi.fn(async (uri: string) => files.get(uri) ?? ""),
+    writeAsStringAsync: vi.fn(async (uri: string, content: string) => {
+      files.set(uri, content);
+    }),
+  };
+});
 
 vi.mock("expo-file-system/legacy", () => ({
   ...fsMock,
 }));
 
-import { saveDump } from "./catalogueStore";
+import { ensureCsvForDump, saveDump } from "./catalogueStore";
 
 describe("catalogueStore CSV dump", () => {
-  it("writes csv output for a sample catalogue dump", async () => {
+  beforeEach(() => {
+    fsMock.files.clear();
+  });
+
+  it("defers csv writing until ensureCsvForDump is called", async () => {
     const dump: CatalogueDump = {
       catalogueId: "WC21:burger-fridays",
       storeCode: "WC21",
@@ -34,7 +45,6 @@ describe("catalogueStore CSV dump", () => {
       catalogueStartDate: Date.parse("2026-03-26T22:00:00.000Z"),
       catalogueEndDate: Date.parse("2026-03-27T21:59:59.000Z"),
       expired: false,
-      csvUri: "",
       rows: [
         {
           position: 1,
@@ -60,16 +70,20 @@ describe("catalogueStore CSV dump", () => {
       "file:///mock-docs/catalogue-helper/exports/wc21-wc21-burger-fridays-barcodes.csv",
     );
 
-    const writeCalls = fsMock.writeAsStringAsync.mock.calls as unknown as Array<
-      [string, string]
-    >;
-    const csvWrite = writeCalls.find(
-      ([uri]) =>
-        uri ===
-        "file:///mock-docs/catalogue-helper/exports/wc21-wc21-burger-fridays-barcodes.csv",
-    );
-    expect(csvWrite).toBeTruthy();
-    const csvContent = csvWrite ? String(csvWrite[1]) : "";
+    const csvUri = persisted.csvUri;
+    if (!csvUri) {
+      throw new Error("Expected saveDump to return a csvUri path.");
+    }
+
+    expect(fsMock.files.has(csvUri)).toBe(false);
+    expect(fsMock.files.has(persisted.dumpUri)).toBe(true);
+    expect(persisted.dump.csvUri).toBeUndefined();
+
+    const ensuredCsvUri = await ensureCsvForDump(persisted.dumpUri, csvUri);
+    expect(ensuredCsvUri).toBe(csvUri);
+    expect(fsMock.files.has(ensuredCsvUri)).toBe(true);
+
+    const csvContent = fsMock.files.get(ensuredCsvUri) ?? "";
 
     expect(csvContent).toContain(
       ["position",
