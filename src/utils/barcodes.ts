@@ -12,6 +12,9 @@ export function isScaleItemEan13(value: string): boolean {
 *
 * Intended for rendering only: it may strip formatting characters and append check digits for
 * some formats.
+*
+* Note: 13-digit scale codes (restricted distribution, `2x` prefix) may bypass check digit
+* validation so we can render the original digits even when the source checksum is incorrect.
 */
 export function normalizeBarcodeForRendering(value: string): RenderableBarcode | null {
   const raw = value.trim();

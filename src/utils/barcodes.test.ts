@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeBarcodeForRendering } from "./barcodes";
+import { ean13ToRawSbs, normalizeBarcodeForRendering } from "./barcodes";
 
 describe("barcodes", () => {
   it("renders 2* 13-digit scale codes ending in 000000 as EAN-13 even with an invalid check digit", () => {
@@ -69,5 +69,22 @@ describe("barcodes", () => {
       format: "EAN13",
       value: "1234567890135",
     });
+  });
+
+  it("encodes EAN-13 values into a BWIPP raw SBS string", () => {
+    const sbs = ean13ToRawSbs("2009692000000");
+    expect(sbs).not.toBeNull();
+    expect(sbs).toMatch(/^[1-9]+$/);
+    expect(
+      sbs!
+        .split("")
+        .map((digit) => Number(digit))
+        .reduce((sum, value) => sum + value, 0),
+    ).toBe(95);
+  });
+
+  it("rejects invalid input when encoding raw EAN-13 SBS strings", () => {
+    expect(ean13ToRawSbs("200969200000")).toBeNull();
+    expect(ean13ToRawSbs("2009692000000A")).toBeNull();
   });
 });
