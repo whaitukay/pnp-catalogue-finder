@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { BRAND, sharedStyles } from "../theme";
 import {
@@ -19,10 +20,14 @@ import {
   getCatalogueTimingStatus,
 } from "../utils/catalogueUi";
 import type { DirectoryItem } from "../utils/catalogueUi";
+import { clampPercent } from "../utils/progressUi";
 import { StatusBadge } from "./StatusBadge";
 
 type DirectoryCatalogueCardProps = {
   item: DirectoryItem;
+  isDownloading: boolean;
+  downloadProgressPercent: number | null;
+  pullDisabled: boolean;
   onPull: (item: DirectoryItem) => void;
   onOpenDump: (catalogueId: string) => void;
 };
@@ -34,12 +39,18 @@ type DirectoryCatalogueCardProps = {
 * the primary action triggers a pull for the item, an optional "View" button invokes a dump-open callback when the item is cached, and an optional link opens the catalogue's source URL.
  *
  * @param item - The catalogue item to display, including label, date ranges, sourceUrl, cache/site flags, and catalogueId.
+* @param isDownloading - When true, shows a progress label and fill in the download button.
+* @param downloadProgressPercent - Download progress percent for the item currently being pulled.
+* @param pullDisabled - When true, disables the download button.
  * @param onPull - Callback invoked with the `item` when the primary action (download/refresh) is pressed.
 * @param onOpenDump - Callback invoked with the item's `catalogueId` when "View" is pressed (rendered only when the item is cached).
  * @returns A React element representing the catalogue card.
  */
 export function DirectoryCatalogueCard({
   item,
+  isDownloading,
+  downloadProgressPercent,
+  pullDisabled,
   onPull,
   onOpenDump,
 }: DirectoryCatalogueCardProps): React.ReactElement {
@@ -54,6 +65,8 @@ export function DirectoryCatalogueCard({
 
   const hasThumbnailUrl = Boolean(item.catalogueImageUrl);
   const showThumbnail = hasThumbnailUrl && !thumbnailLoadFailed;
+  const pullButtonLabel = item.fromCache ? "Refresh" : "Download";
+  const progressPercent = clampPercent(downloadProgressPercent);
 
   useEffect(() => {
     setThumbnailLoadFailed(false);
@@ -151,10 +164,38 @@ export function DirectoryCatalogueCard({
         {formatDateStampRange(item.catalogueStartDate, item.catalogueEndDate)}
       </Text>
       <View style={sharedStyles.buttonRow}>
-        <Pressable onPress={() => onPull(item)} style={sharedStyles.primaryButton}>
-          <Text style={sharedStyles.primaryButtonText}>
-            {item.fromCache ? "Refresh" : "Download"}
+        <Pressable
+          disabled={pullDisabled}
+          onPress={() => onPull(item)}
+          style={[
+            sharedStyles.primaryButton,
+            styles.pullButton,
+            pullDisabled && styles.pullButtonDisabled,
+          ]}
+        >
+          <Text style={[sharedStyles.primaryButtonText, styles.pullButtonGhostLabel]}>
+            {pullButtonLabel}
           </Text>
+
+          {isDownloading ? (
+            <View
+              pointerEvents="none"
+              style={[styles.pullButtonFillClip, { width: `${progressPercent}%` }]}
+            >
+              <LinearGradient
+                colors={[BRAND.redDark, BRAND.red]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.pullButtonFillGradient}
+              />
+            </View>
+          ) : null}
+
+          <View pointerEvents="none" style={styles.pullButtonOverlay}>
+            <Text style={sharedStyles.primaryButtonText}>
+              {isDownloading ? `${Math.round(progressPercent)}%` : pullButtonLabel}
+            </Text>
+          </View>
         </Pressable>
         {item.fromCache ? (
           <Pressable
@@ -451,5 +492,31 @@ const styles = StyleSheet.create({
   linkButtonText: {
     color: "#004a98",
     fontWeight: "700",
+  },
+  pullButton: {
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  pullButtonGhostLabel: {
+    opacity: 0,
+  },
+  pullButtonFillClip: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    overflow: "hidden",
+  },
+  pullButtonFillGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  pullButtonOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pullButtonDisabled: {
+    opacity: 0.65,
   },
 });

@@ -94,6 +94,10 @@ export default function App(): React.ReactElement {
   const [statusMessage, setStatusMessage] = useState("");
   const [errorText, setErrorText] = useState("");
   const [busyLabel, setBusyLabel] = useState("");
+  const [downloadingCatalogueId, setDownloadingCatalogueId] = useState<string | null>(null);
+  const [downloadProgressPercent, setDownloadProgressPercent] = useState<number | null>(null);
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+  const [bulkDownloadProgressPercent, setBulkDownloadProgressPercent] = useState<number | null>(null);
   const [cataloguePage, setCataloguePage] = useState(0);
   const [dumpRowsPage, setDumpRowsPage] = useState(0);
   const [dumpSearch, setDumpSearch] = useState("");
@@ -247,12 +251,25 @@ export default function App(): React.ReactElement {
     setBusyLabel(
       forceRefresh ? "Refreshing all visible site catalogues..." : "Pulling missing site catalogues...",
     );
+    setDownloadingCatalogueId(null);
+    setDownloadProgressPercent(null);
+    setIsBulkDownloading(true);
+    setBulkDownloadProgressPercent(0);
     setErrorText("");
     setStatusMessage("");
 
     try {
       const nextSettings = await persistSettings();
-      const summary = await syncAllMissingCatalogues(nextSettings.storeCode, forceRefresh);
+      const summary = await syncAllMissingCatalogues(
+        nextSettings.storeCode,
+        forceRefresh,
+        (current, total) => {
+          setBusyLabel(`Downloading ${current}/${total} catalogues...`);
+          setBulkDownloadProgressPercent(
+            total > 0 ? Math.round((current / total) * 100) : 0,
+          );
+        },
+      );
       setSyncSummary(summary);
       await refreshCatalogueData({
         nextStoreCode: nextSettings.storeCode,
@@ -265,19 +282,30 @@ export default function App(): React.ReactElement {
     } catch (error) {
       setErrorText(errorMessage(error));
     } finally {
+      setIsBulkDownloading(false);
+      setBulkDownloadProgressPercent(null);
       setBusyLabel("");
     }
   }
 
   async function pullSingleCatalogue(item: DirectoryItem): Promise<void> {
-
+    setDownloadingCatalogueId(item.catalogueId);
+    setDownloadProgressPercent(0);
     setBusyLabel(`Pulling ${item.label}...`);
     setErrorText("");
     setStatusMessage("");
 
     try {
       const nextSettings = await persistSettings();
-      const outcome = await scanCatalogue(item.pullSource, nextSettings.storeCode, false, item.label);
+      const outcome = await scanCatalogue(
+        item.pullSource,
+        nextSettings.storeCode,
+        false,
+        item.label,
+        (progress) => {
+          setDownloadProgressPercent(Math.round(progress * 100));
+        },
+      );
       await refreshCatalogueData({
         nextStoreCode: nextSettings.storeCode,
         showBusy: false,
@@ -289,6 +317,8 @@ export default function App(): React.ReactElement {
     } catch (error) {
       setErrorText(errorMessage(error));
     } finally {
+      setDownloadingCatalogueId(null);
+      setDownloadProgressPercent(null);
       setBusyLabel("");
     }
   }
@@ -472,7 +502,11 @@ export default function App(): React.ReactElement {
                   cachedCount={visibleCachedCatalogues.length}
                   cataloguePage={cataloguePage}
                   directoryItems={directoryItems}
+                  downloadingCatalogueId={downloadingCatalogueId}
+                  downloadProgressPercent={downloadProgressPercent}
                   hideExpiredCatalogues={hideExpiredCatalogues}
+                  isBulkDownloading={isBulkDownloading}
+                  bulkDownloadProgressPercent={bulkDownloadProgressPercent}
                   onCataloguePageChange={setCataloguePage}
                   onForceRefresh={() => {
                     void runPull(true);

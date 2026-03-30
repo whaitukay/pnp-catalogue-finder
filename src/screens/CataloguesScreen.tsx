@@ -1,5 +1,6 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { DirectoryCatalogueCard } from "../components/DirectoryCatalogueCard";
 import { PaginationControls } from "../components/PaginationControls";
@@ -7,8 +8,13 @@ import { BRAND, sharedStyles } from "../theme";
 import type { SyncSummary } from "../types";
 import type { DirectoryItem } from "../utils/catalogueUi";
 import { formatDateRange } from "../utils/catalogueUi";
+import { clampPercent } from "../utils/progressUi";
 
 type CataloguesScreenProps = {
+  downloadingCatalogueId: string | null;
+  downloadProgressPercent: number | null;
+  isBulkDownloading: boolean;
+  bulkDownloadProgressPercent: number | null;
   hideExpiredCatalogues: boolean;
   siteCount: number;
   cachedCount: number;
@@ -25,6 +31,10 @@ type CataloguesScreenProps = {
 };
 
 export function CataloguesScreen({
+  downloadingCatalogueId,
+  downloadProgressPercent,
+  isBulkDownloading,
+  bulkDownloadProgressPercent,
   hideExpiredCatalogues,
   siteCount,
   cachedCount,
@@ -39,6 +49,10 @@ export function CataloguesScreen({
   onOpenDump,
   onCataloguePageChange,
 }: CataloguesScreenProps): React.ReactElement {
+  const downloadsDisabled = Boolean(downloadingCatalogueId) || isBulkDownloading;
+  const pullAllLabel = "Download all";
+  const bulkProgressPercent = clampPercent(bulkDownloadProgressPercent);
+
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
       <View style={styles.heroCard}>
@@ -51,8 +65,37 @@ export function CataloguesScreen({
           <Pressable onPress={onRefreshList} style={styles.heroSecondaryButton}>
             <Text style={styles.heroSecondaryButtonText}>Refresh list</Text>
           </Pressable>
-          <Pressable onPress={onPullAll} style={styles.heroPrimaryButton}>
-            <Text style={styles.heroPrimaryButtonText}>Download all</Text>
+          <Pressable
+            disabled={downloadsDisabled}
+            onPress={onPullAll}
+            style={[styles.heroPrimaryButton, downloadsDisabled && styles.heroPrimaryButtonDisabled]}
+          >
+            <Text style={[styles.heroPrimaryButtonText, styles.heroPrimaryButtonGhostLabel]}>
+              {pullAllLabel}
+            </Text>
+
+            {isBulkDownloading ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.heroPrimaryButtonFillClip,
+                  { width: `${bulkProgressPercent}%` },
+                ]}
+              >
+                <LinearGradient
+                  colors={[BRAND.redDark, BRAND.red]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.heroPrimaryButtonFillGradient}
+                />
+              </View>
+            ) : null}
+
+            <View pointerEvents="none" style={styles.heroPrimaryButtonOverlay}>
+              <Text style={styles.heroPrimaryButtonText}>
+                {isBulkDownloading ? `${Math.round(bulkProgressPercent)}%` : pullAllLabel}
+              </Text>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -76,6 +119,11 @@ export function CataloguesScreen({
         pagedDirectoryItems.map((item) => (
           <DirectoryCatalogueCard
             key={item.catalogueId}
+            pullDisabled={downloadsDisabled}
+            downloadProgressPercent={
+              item.catalogueId === downloadingCatalogueId ? downloadProgressPercent : null
+            }
+            isDownloading={item.catalogueId === downloadingCatalogueId}
             item={item}
             onOpenDump={onOpenDump}
             onPull={onPullItem}
@@ -145,6 +193,30 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  heroPrimaryButtonGhostLabel: {
+    opacity: 0,
+  },
+  heroPrimaryButtonFillClip: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    overflow: "hidden",
+  },
+  heroPrimaryButtonFillGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroPrimaryButtonOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  heroPrimaryButtonDisabled: {
+    opacity: 0.65,
   },
   heroPrimaryButtonText: {
     color: BRAND.white,
