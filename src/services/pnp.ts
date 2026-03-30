@@ -1044,8 +1044,8 @@ async function exportTarget(
   const key = catalogueIdForTarget(storeCode, target);
   const existingEntry = manifest.catalogues[key];
 
-  const slugLike = target.slug ?? existingEntry?.slug;
-  const slug = slugLike ?? target.label;
+  const slugLike = coalesceNonEmpty(target.slug, existingEntry?.slug);
+  const slug = slugLike || target.label;
   let label = target.label;
   if (
     existingEntry &&
