@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeBarcodeForRendering } from "./barcodes";
 
 describe("barcodes", () => {
-  it("renders 2* 13-digit scale codes as EAN-13 even with an invalid check digit", () => {
+  it("renders 2* 13-digit scale codes ending in 000000 as EAN-13 even with an invalid check digit", () => {
     expect(normalizeBarcodeForRendering("2009692000000")).toEqual({
       format: "EAN13",
       value: "2009692000000",
@@ -15,6 +15,10 @@ describe("barcodes", () => {
       format: "EAN13",
       value: "2000000000008",
     });
+  });
+
+  it("rejects non-scale 2* EAN-13 values with an invalid check digit", () => {
+    expect(normalizeBarcodeForRendering("2000000000007")).toBeNull();
   });
 
   it("accepts valid EAN-13 inputs", () => {

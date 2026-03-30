@@ -239,7 +239,8 @@ function BarcodeImage({
     let cancelled = false;
     setSource(null);
 
-    const isScaleCode = format === "EAN13" && value.length === 13 && value.startsWith("2");
+    const isScaleCode =
+      format === "EAN13" && value.length === 13 && value.startsWith("2") && value.endsWith("000000");
     const rawSbs = isScaleCode ? ean13ToRawSbs(value) : null;
     const bcid = format === "EAN8" ? "ean8" : isScaleCode ? "raw" : "ean13";
     if (isScaleCode && !rawSbs) {
@@ -249,15 +250,17 @@ function BarcodeImage({
       };
     }
 
+    const options: Parameters<typeof bwipjs.toDataURL>[0] = {
+      bcid,
+      text: isScaleCode ? rawSbs! : value,
+      scale,
+      height: 12,
+      includetext: true,
+      ...(isScaleCode ? { alttext: value } : {}),
+    };
+
     bwipjs
-      .toDataURL({
-        bcid,
-        text: isScaleCode ? rawSbs! : value,
-        alttext: isScaleCode ? value : undefined,
-        scale,
-        height: 12,
-        includetext: true,
-      })
+      .toDataURL(options)
       .then((nextSource: bwipjs.DataURL) => {
         putBarcodeImageInCache(cacheKey, nextSource);
 

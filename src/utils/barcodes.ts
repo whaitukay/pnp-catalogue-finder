@@ -22,10 +22,11 @@ export function normalizeBarcodeForRendering(value: string): RenderableBarcode |
     const expectedCheckDigit = ean13CheckDigit(body);
     const checkDigit = digits[12];
 
-    // PnP occasionally returns restricted distribution scale codes (20-29) with an incorrect EAN-13
-    // check digit. Some downstream systems expect the original digits, so for these codes we keep
-    // the provided check digit and let the renderer handle it.
-    if (digits.startsWith("2")) {
+    // Some scale-item codes use restricted distribution prefixes (20-29) and end with `000000`.
+    // These can come through with a non-EAN check digit, but some scanners/systems still expect
+    // the digits exactly as provided (including the six zero suffix), so we accept them as-is and
+    // let the renderer handle the non-standard check digit.
+    if (digits.startsWith("2") && digits.endsWith("000000")) {
       return { format: "EAN13", value: digits };
     }
 
