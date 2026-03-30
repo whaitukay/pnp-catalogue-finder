@@ -64,7 +64,6 @@ export function DumpsScreen({
 
   React.useEffect(() => {
     let mounted = true;
-    let subscription: { remove: () => void } | undefined;
 
     void AccessibilityInfo.isReduceMotionEnabled().then((value: boolean) => {
       if (mounted) {
@@ -72,18 +71,16 @@ export function DumpsScreen({
       }
     });
 
-    if (typeof AccessibilityInfo.addEventListener === "function") {
-      subscription = AccessibilityInfo.addEventListener(
-        "reduceMotionChanged",
-        (value: boolean) => {
-          setReduceMotionEnabled(value);
-        },
-      );
-    }
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      (value: boolean) => {
+        setReduceMotionEnabled(value);
+      },
+    );
 
     return () => {
       mounted = false;
-      subscription?.remove();
+      subscription.remove();
     };
   }, []);
 
