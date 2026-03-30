@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import type { LayoutAnimationConfig } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import * as bwipjs from "@bwip-js/react-native";
 
@@ -56,6 +57,8 @@ export function DumpsScreen({
     selectedDump.catalogueStartDate,
     selectedDump.catalogueEndDate,
   );
+
+  const insets = useSafeAreaInsets();
 
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
   const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(true);
@@ -124,6 +127,7 @@ export function DumpsScreen({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={insets.top}
       style={sharedStyles.flex}
     >
       <ScrollView
