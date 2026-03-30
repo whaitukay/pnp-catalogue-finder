@@ -40,7 +40,7 @@ describe("importParser", () => {
 
     const imported = await parseImportFile("file:///mock.csv", "Book1.csv");
 
-    expect(imported.id).toBe("book1-1774838400000");
+    expect(imported.id).toBe("book1-1774828800000");
     expect(imported.itemCount).toBe(2);
     expect(imported.barcodeCount).toBe(1);
     expect(imported.items).toEqual([

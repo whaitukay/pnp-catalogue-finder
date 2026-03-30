@@ -39,6 +39,7 @@ import { deleteImport, listImports, loadImport, saveImport } from "./catalogueSt
 
 describe("catalogueStore imports", () => {
   beforeEach(() => {
+    fsMock.__files.clear();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-30T00:00:00.000Z"));
   });
