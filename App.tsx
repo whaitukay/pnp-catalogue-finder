@@ -128,9 +128,6 @@ export default function App(): React.ReactElement {
   const [importBusy, setImportBusy] = useState("");
   const [importError, setImportError] = useState("");
   const [importStatus, setImportStatus] = useState("");
-  const [provisionalWindows, setProvisionalWindows] = useState<
-    Record<string, { promotionStartDate: number | null; promotionEndDate: number | null }>
-  >({});
 
   const normalizedStoreCode = useMemo(() => normalizeStoreCode(storeCode), [storeCode]);
 
