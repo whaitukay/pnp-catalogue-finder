@@ -1030,23 +1030,33 @@ async function exportTarget(
   includeDump: boolean,
   onProgress?: FractionalProgress,
 ): Promise<ExportOutcome> {
+  function coalesceNonEmpty(...values: Array<string | undefined | null>): string {
+    for (const value of values) {
+      const trimmed = value?.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+    return "";
+  }
+
   const manifest = await loadManifestCache();
   const key = catalogueIdForTarget(storeCode, target);
   const existingEntry = manifest.catalogues[key];
 
   const slug = target.slug ?? existingEntry?.slug ?? target.label;
   let label = target.label;
+  const targetSlugLike = target.slug ?? existingEntry?.slug ?? target.label;
   if (
     existingEntry &&
-    target.slug &&
-    target.label === target.slug &&
+    target.label === targetSlugLike &&
     existingEntry.label &&
     existingEntry.label !== existingEntry.slug
   ) {
     label = existingEntry.label;
   }
-  const sourceUrl = target.sourceUrl ?? existingEntry?.sourceUrl ?? "";
-  const discoveredFrom = target.discoveredFrom ?? existingEntry?.discoveredFrom ?? "";
+  const sourceUrl = coalesceNonEmpty(target.sourceUrl, existingEntry?.sourceUrl);
+  const discoveredFrom = coalesceNonEmpty(target.discoveredFrom, existingEntry?.discoveredFrom);
   const catalogueStartDate = target.catalogueStartDate ?? existingEntry?.catalogueStartDate ?? null;
   const catalogueEndDate = target.catalogueEndDate ?? existingEntry?.catalogueEndDate ?? null;
   const catalogueImageUrl = coalesceCatalogueImageUrl(
