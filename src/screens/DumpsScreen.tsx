@@ -126,11 +126,7 @@ export function DumpsScreen({
   const handleSearchClear = React.useCallback(() => {
     animateLayout();
     onDumpSearchChange("");
-
-    if (isSearchFocused) {
-      searchInputRef.current?.blur();
-    }
-  }, [animateLayout, isSearchFocused, onDumpSearchChange]);
+  }, [animateLayout, onDumpSearchChange]);
 
   return (
     <KeyboardAvoidingView
