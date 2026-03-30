@@ -17,7 +17,11 @@ import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge } from "../components/StatusBadge";
 import { sharedStyles } from "../theme";
 import type { CatalogueDump, ProductRow } from "../types";
-import { ean13ToRawSbs, normalizeBarcodeForRendering } from "../utils/barcodes";
+import {
+  ean13ToRawSbs,
+  isScaleItemEan13,
+  normalizeBarcodeForRendering,
+} from "../utils/barcodes";
 import { formatDateStamp, getCatalogueTimingStatus } from "../utils/catalogueUi";
 
 type DumpsScreenProps = {
@@ -239,8 +243,7 @@ function BarcodeImage({
     let cancelled = false;
     setSource(null);
 
-    const isScaleCode =
-      format === "EAN13" && value.length === 13 && value.startsWith("2") && value.endsWith("000000");
+    const isScaleCode = format === "EAN13" && isScaleItemEan13(value);
     const rawSbs = isScaleCode ? ean13ToRawSbs(value) : null;
     const bcid = format === "EAN8" ? "ean8" : isScaleCode ? "raw" : "ean13";
     if (isScaleCode && !rawSbs) {

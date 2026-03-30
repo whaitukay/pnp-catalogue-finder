@@ -3,6 +3,10 @@ export type RenderableBarcode = {
   value: string;
 };
 
+export function isScaleItemEan13(value: string): boolean {
+  return value.length === 13 && value.startsWith("2") && value.endsWith("000000");
+}
+
 /**
 * Normalizes a raw barcode string into a renderable format + payload.
 *
@@ -26,7 +30,7 @@ export function normalizeBarcodeForRendering(value: string): RenderableBarcode |
     // These can come through with a non-EAN check digit, but some scanners/systems still expect
     // the digits exactly as provided (including the six zero suffix), so we accept them as-is and
     // let the renderer handle the non-standard check digit.
-    if (digits.startsWith("2") && digits.endsWith("000000")) {
+    if (isScaleItemEan13(digits)) {
       return { format: "EAN13", value: digits };
     }
 
