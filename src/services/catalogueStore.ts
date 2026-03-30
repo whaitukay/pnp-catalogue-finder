@@ -69,6 +69,8 @@ type CsvFieldDefinition = {
   getValue: (row: ProductRow, dump: CatalogueDump) => string;
 };
 
+export { safeFileName };
+
 async function ensureDirectory(uri: string): Promise<void> {
   try {
     await FileSystem.makeDirectoryAsync(uri, { intermediates: true });
@@ -449,17 +451,6 @@ async function writeCsvForDump(
   });
 }
 
-export function safeFileName(value: string): string {
-  return (
-    value
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/-{2,}/g, "-")
-      .replace(/^-+|-+$/g, "") || "catalogue-specials"
-  );
-}
-
 export async function ensureStorage(): Promise<void> {
   await Promise.all([
     ensureDirectory(ROOT_DIR),
@@ -663,11 +654,31 @@ export async function loadImport(id: string): Promise<ImportedCatalogue | null> 
   }
 
   const raw = await readJson<ImportedCatalogue | null>(buildImportUri(id), null);
-  return raw ? normalizeImportedCatalogueValue(raw) : null;
+  if (!raw) {
+    delete manifest.imports[id];
+    await saveImportsManifest(manifest);
+    return null;
+  }
+  return normalizeImportedCatalogueValue(raw);
 }
 
 export async function listImports(): Promise<ImportedCatalogueSummary[]> {
   const manifest = await loadImportsManifest();
+  const entries = Object.keys(manifest.imports);
+  if (entries.length === 0) {
+    return [];
+  }
+
+  const existence = await Promise.all(
+    entries.map(async (id) => ({ id, exists: await fileExists(buildImportUri(id)) })),
+  );
+  const staleEntries = existence.filter((entry) => !entry.exists);
+  if (staleEntries.length > 0) {
+    for (const stale of staleEntries) {
+      delete manifest.imports[stale.id];
+    }
+    await saveImportsManifest(manifest);
+  }
 
   return Object.values(manifest.imports).sort((left, right) => {
     const timestampDiff = right.importedAt - left.importedAt;

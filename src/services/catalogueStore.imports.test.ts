@@ -128,4 +128,35 @@ describe("catalogueStore imports", () => {
     expect(await loadImport("import-a")).toBeNull();
     expect(await listImports()).toEqual([]);
   });
+
+  it("prunes stale manifest entries when import files are missing", async () => {
+    const imported: ImportedCatalogue = {
+      id: "import-a",
+      name: "Import A",
+      importedAt: 1000,
+      itemCount: 1,
+      barcodeCount: 1,
+      items: [
+        {
+          position: 1,
+          baseProduct: "000000000001",
+          barcode: "6001000000001",
+          barcodeFound: true,
+        },
+      ],
+    };
+
+    await saveImport(imported);
+
+    fsMock.__files.delete("file:///mock-docs/catalogue-helper/imports/import-a.json");
+
+    expect(await listImports()).toEqual([]);
+    expect(await loadImport("import-a")).toBeNull();
+
+    const rawManifest = fsMock.__files.get(
+      "file:///mock-docs/catalogue-helper/cache/imports-manifest.json",
+    );
+    expect(rawManifest).toBeTruthy();
+    expect(JSON.parse(rawManifest ?? "{}")).toMatchObject({ imports: {} });
+  });
 });
