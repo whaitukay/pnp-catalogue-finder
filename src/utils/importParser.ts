@@ -1,7 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as XLSX from "xlsx";
 
-import { safeFileName } from "../services/catalogueStore";
+import { safeFileName } from "./fileNames";
 import type { ImportedCatalogue, ImportedItem } from "../types";
 
 const BASE_PRODUCT_LENGTH = 18;
@@ -22,7 +22,8 @@ function normalizeDigitsCell(value: unknown): string {
 
   if (/[eE][+-]?\d+/.test(text)) {
     throw new Error(
-      "Import contains values in scientific notation. Format the Base Product/Barcode columns as text and re-export the file.",
+      "Import contains values in scientific notation (Excel numeric format). " +
+        "Format the Base Product/Barcode columns as text and re-export the file.",
     );
   }
 
@@ -48,7 +49,7 @@ function headerLooksLikeData(headerRow: unknown[]): boolean {
   return Boolean(first);
 }
 
-function inferColumnIndexes(headerRow: unknown[]): {
+function inferColumnIndexesFromHeaderRow(headerRow: unknown[]): {
   baseProductIndex: number;
   barcodeIndex: number;
 } {
@@ -56,12 +57,84 @@ function inferColumnIndexes(headerRow: unknown[]): {
   const baseProductIndex = normalized.findIndex((value) => {
     return value.includes("base") || value.includes("product");
   });
-  const barcodeIndex = normalized.findIndex((value) => value.includes("barcode"));
+  const barcodeIndex = normalized.findIndex((value) => {
+    return (
+      value.includes("barcode") ||
+      value.includes("ean") ||
+      value.includes("gtin") ||
+      value.includes("upc")
+    );
+  });
+
+  const resolvedBaseProductIndex = baseProductIndex >= 0 ? baseProductIndex : 0;
+  let resolvedBarcodeIndex = barcodeIndex >= 0 ? barcodeIndex : 1;
+  if (resolvedBarcodeIndex === resolvedBaseProductIndex) {
+    resolvedBarcodeIndex = resolvedBaseProductIndex === 0 ? 1 : 0;
+  }
 
   return {
-    baseProductIndex: baseProductIndex >= 0 ? baseProductIndex : 0,
-    barcodeIndex: barcodeIndex >= 0 ? barcodeIndex : 1,
+    baseProductIndex: resolvedBaseProductIndex,
+    barcodeIndex: resolvedBarcodeIndex,
   };
+}
+
+function looksLikeBarcodeCell(value: unknown): boolean {
+  const digits = normalizeDigitsCell(value);
+  return digits.length >= 12 && digits.length <= 14;
+}
+
+function inferColumnIndexesFromDataRows(dataRows: unknown[][]): {
+  baseProductIndex: number;
+  barcodeIndex: number;
+} {
+  const sampleRows = dataRows.slice(0, 25);
+  let leftBarcodeScore = 0;
+  let rightBarcodeScore = 0;
+  let hasSecondColumn = false;
+
+  for (const row of sampleRows) {
+    if (looksLikeBarcodeCell(row[0])) {
+      leftBarcodeScore += 1;
+    }
+    if (String(row[1] ?? "").trim()) {
+      hasSecondColumn = true;
+    }
+    if (looksLikeBarcodeCell(row[1])) {
+      rightBarcodeScore += 1;
+    }
+  }
+
+  if (!hasSecondColumn) {
+    return { baseProductIndex: 0, barcodeIndex: 1 };
+  }
+
+  if (leftBarcodeScore > rightBarcodeScore) {
+    return { baseProductIndex: 1, barcodeIndex: 0 };
+  }
+
+  if (rightBarcodeScore > leftBarcodeScore) {
+    return { baseProductIndex: 0, barcodeIndex: 1 };
+  }
+
+  const firstDataRow = sampleRows.find((row) => {
+    return String(row[0] ?? "").trim() || String(row[1] ?? "").trim();
+  });
+  if (!firstDataRow) {
+    return { baseProductIndex: 0, barcodeIndex: 1 };
+  }
+
+  const leftDigits = normalizeDigitsCell(firstDataRow[0]);
+  const rightDigits = normalizeDigitsCell(firstDataRow[1]);
+
+  if (leftDigits.length >= 12 && rightDigits.length > 0 && rightDigits.length < 12) {
+    return { baseProductIndex: 1, barcodeIndex: 0 };
+  }
+
+  if (rightDigits.length >= 12 && leftDigits.length > 0 && leftDigits.length < 12) {
+    return { baseProductIndex: 0, barcodeIndex: 1 };
+  }
+
+  return { baseProductIndex: 0, barcodeIndex: 1 };
 }
 
 function parseWorksheetRows(sheet: XLSX.WorkSheet): unknown[][] {
@@ -118,10 +191,10 @@ export async function parseImportFile(
   }
 
   const hasHeaderRow = !headerLooksLikeData(rows[0]);
-  const { baseProductIndex, barcodeIndex } = hasHeaderRow
-    ? inferColumnIndexes(rows[0])
-    : { baseProductIndex: 0, barcodeIndex: 1 };
   const dataRows = hasHeaderRow ? rows.slice(1) : rows;
+  const { baseProductIndex, barcodeIndex } = hasHeaderRow
+    ? inferColumnIndexesFromHeaderRow(rows[0])
+    : inferColumnIndexesFromDataRows(dataRows);
 
   const items: ImportedItem[] = [];
   for (const row of dataRows) {

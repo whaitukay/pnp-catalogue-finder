@@ -76,6 +76,30 @@ describe("importParser", () => {
     });
   });
 
+  it("infers barcode-first column order for headerless CSV imports", async () => {
+    fsMock.readAsStringAsync.mockResolvedValueOnce(
+      ["6001000000001,123", "6001000000002,456"].join("\n"),
+    );
+
+    const imported = await parseImportFile("file:///mock.csv", "Products.csv");
+    expect(imported.itemCount).toBe(2);
+    expect(imported.items[0]).toMatchObject({
+      baseProduct: "000000000000000123",
+      barcode: "6001000000001",
+      barcodeFound: true,
+    });
+  });
+
+  it("rejects scientific notation in barcode/base product cells", async () => {
+    fsMock.readAsStringAsync.mockResolvedValueOnce(
+      ["baseProduct,barcode", "6.001E+12,6001000000001"].join("\n"),
+    );
+
+    await expect(parseImportFile("file:///mock.csv", "Book1.csv")).rejects.toThrow(
+      /scientific notation/i,
+    );
+  });
+
   it("parses XLSX imports", async () => {
     const workbook = XLSX.utils.book_new();
     const sheet = XLSX.utils.aoa_to_sheet([

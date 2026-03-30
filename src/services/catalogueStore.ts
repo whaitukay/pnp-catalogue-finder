@@ -8,6 +8,7 @@ import {
   formatDateYyyyMmDd,
   parseDateTimestamp,
 } from "../utils/dateUtils";
+import { safeFileName } from "../utils/fileNames";
 import type {
   AppSettings,
   CatalogueDump,
