@@ -121,6 +121,7 @@ const styles = StyleSheet.create({
 
 function ImportItemCard({ item }: { item: ImportedItem }): React.ReactElement {
   const rawBarcode = typeof item.barcode === "string" ? item.barcode : "";
+  const baseProductLabel = formatBaseProductForDisplay(item.baseProduct);
   const hasBarcodeDigits = /\d/.test(rawBarcode);
   const normalizedBarcode = React.useMemo(
     () => normalizeBarcodeForRendering(rawBarcode),
@@ -139,7 +140,7 @@ function ImportItemCard({ item }: { item: ImportedItem }): React.ReactElement {
   return (
     <View style={sharedStyles.card}>
       <Text numberOfLines={2} style={sharedStyles.cardTitle}>
-        Base product {item.baseProduct}
+        Base product {baseProductLabel}
       </Text>
       <View style={styles.itemRow}>
         <View style={styles.itemDetails}>
@@ -160,4 +161,14 @@ function ImportItemCard({ item }: { item: ImportedItem }): React.ReactElement {
       </View>
     </View>
   );
+}
+
+function formatBaseProductForDisplay(value: string): string {
+  const digits = value.trim().replace(/\D/g, "");
+  if (!digits) {
+    return value.trim();
+  }
+
+  const stripped = digits.replace(/^0+/, "");
+  return stripped || "0";
 }
