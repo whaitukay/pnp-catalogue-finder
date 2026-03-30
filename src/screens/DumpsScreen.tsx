@@ -61,9 +61,15 @@ export function DumpsScreen({
   const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(true);
   const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
   const searchInputRef = React.useRef<React.ElementRef<typeof TextInput>>(null);
+  const isAndroid = Platform.OS === "android";
 
   React.useEffect(() => {
+    if (!isAndroid) {
+      return;
+    }
+
     let mounted = true;
+    let subscription: { remove: () => void } | undefined;
 
     void AccessibilityInfo.isReduceMotionEnabled().then((value: boolean) => {
       if (mounted) {
@@ -71,26 +77,28 @@ export function DumpsScreen({
       }
     });
 
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      (value: boolean) => {
-        setReduceMotionEnabled(value);
-      },
-    );
+    if (typeof AccessibilityInfo.addEventListener === "function") {
+      subscription = AccessibilityInfo.addEventListener(
+        "reduceMotionChanged",
+        (value: boolean) => {
+          setReduceMotionEnabled(value);
+        },
+      );
+    }
 
     return () => {
       mounted = false;
-      subscription.remove();
+      subscription?.remove();
     };
   }, []);
 
   const animateLayout = React.useCallback(() => {
-    if (reduceMotionEnabled) {
+    if (reduceMotionEnabled || !isAndroid) {
       return;
     }
 
     LayoutAnimation.configureNext(SEARCH_LAYOUT_ANIMATION);
-  }, [reduceMotionEnabled]);
+  }, [isAndroid, reduceMotionEnabled]);
 
   const handleSearchFocus = React.useCallback(() => {
     animateLayout();
