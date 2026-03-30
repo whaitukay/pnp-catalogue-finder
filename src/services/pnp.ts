@@ -1023,6 +1023,16 @@ function deriveDumpWindow(rows: ProductRow[]): {
   };
 }
 
+function coalesceNonEmpty(...values: Array<string | undefined | null>): string {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return "";
+}
+
 async function exportTarget(
   target: CatalogueTarget,
   storeCode: string,
@@ -1030,23 +1040,13 @@ async function exportTarget(
   includeDump: boolean,
   onProgress?: FractionalProgress,
 ): Promise<ExportOutcome> {
-  function coalesceNonEmpty(...values: Array<string | undefined | null>): string {
-    for (const value of values) {
-      const trimmed = value?.trim();
-      if (trimmed) {
-        return trimmed;
-      }
-    }
-    return "";
-  }
-
   const manifest = await loadManifestCache();
   const key = catalogueIdForTarget(storeCode, target);
   const existingEntry = manifest.catalogues[key];
 
-  const slug = target.slug ?? existingEntry?.slug ?? target.label;
-  let label = target.label;
   const slugLike = target.slug ?? existingEntry?.slug;
+  const slug = slugLike ?? target.label;
+  let label = target.label;
   if (
     existingEntry &&
     slugLike &&
