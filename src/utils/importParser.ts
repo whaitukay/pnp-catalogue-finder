@@ -126,11 +126,14 @@ function inferColumnIndexesFromDataRows(dataRows: unknown[][]): {
   const leftDigits = normalizeDigitsCell(firstDataRow[0]);
   const rightDigits = normalizeDigitsCell(firstDataRow[1]);
 
-  if (leftDigits.length >= 12 && rightDigits.length > 0 && rightDigits.length < 12) {
+  const leftLooksLikeBarcode = looksLikeBarcodeCell(firstDataRow[0]);
+  const rightLooksLikeBarcode = looksLikeBarcodeCell(firstDataRow[1]);
+
+  if (leftLooksLikeBarcode && rightDigits.length > 0 && rightDigits.length < BASE_PRODUCT_LENGTH) {
     return { baseProductIndex: 1, barcodeIndex: 0 };
   }
 
-  if (rightDigits.length >= 12 && leftDigits.length > 0 && leftDigits.length < 12) {
+  if (rightLooksLikeBarcode && leftDigits.length > 0 && leftDigits.length < BASE_PRODUCT_LENGTH) {
     return { baseProductIndex: 0, barcodeIndex: 1 };
   }
 

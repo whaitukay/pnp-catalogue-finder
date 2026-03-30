@@ -663,7 +663,7 @@ export async function loadImport(id: string): Promise<ImportedCatalogue | null> 
 }
 
 export async function listImports(): Promise<ImportedCatalogueSummary[]> {
-  const manifest = await loadImportsManifest();
+  let manifest = await loadImportsManifest();
   const entries = Object.keys(manifest.imports);
   if (entries.length === 0) {
     return [];
@@ -674,6 +674,7 @@ export async function listImports(): Promise<ImportedCatalogueSummary[]> {
   );
   const staleEntries = existence.filter((entry) => !entry.exists);
   if (staleEntries.length > 0) {
+    manifest = await loadImportsManifest();
     for (const stale of staleEntries) {
       delete manifest.imports[stale.id];
     }
