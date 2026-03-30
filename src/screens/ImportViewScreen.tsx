@@ -20,6 +20,7 @@ type ImportViewScreenProps = {
   filteredImportItems: ImportedItem[];
   pagedImportItems: ImportedItem[];
   importPage: number;
+  pageSize: number;
   onBack: () => void;
   onImportSearchChange: (value: string) => void;
   onImportPageChange: (nextPage: number) => void;
@@ -31,6 +32,7 @@ export function ImportViewScreen({
   filteredImportItems,
   pagedImportItems,
   importPage,
+  pageSize,
   onBack,
   onImportSearchChange,
   onImportPageChange,
@@ -86,7 +88,7 @@ export function ImportViewScreen({
       <PaginationControls
         onPageChange={onImportPageChange}
         page={importPage}
-        pageSize={24}
+        pageSize={pageSize}
         totalItems={filteredImportItems.length}
       />
     </ScrollView>

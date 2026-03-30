@@ -785,6 +785,7 @@ export default function App(): React.ReactElement {
                   filteredImportItems={filteredImportItems}
                   importPage={importPage}
                   importSearch={importSearch}
+                  pageSize={IMPORT_ITEMS_PAGE_SIZE}
                   onBack={() => {
                     setSelectedImport(null);
                   }}
