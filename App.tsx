@@ -160,7 +160,8 @@ export default function App(): React.ReactElement {
 
   const reportDownloadProgress = useCallback(
     (progress: number) => {
-      const nextPercent = Math.round(progress * 100);
+      const safeProgress = Number.isFinite(progress) ? progress : 0;
+      const nextPercent = Math.max(0, Math.min(100, Math.round(safeProgress * 100)));
       const now = Date.now();
       const { percent: lastPercent, updatedAt } = lastDownloadProgressRef.current;
       const progressDelta = lastPercent == null ? Infinity : Math.abs(nextPercent - lastPercent);
