@@ -170,7 +170,10 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   const rawBarcode = typeof row.barcode === "string" ? row.barcode : "";
   const barcodeDigits = rawBarcode.replace(/\D/g, "");
   const hasBarcodeDigits = barcodeDigits.length > 0;
-  const normalizedBarcode = React.useMemo(() => normalizeEan(barcodeDigits), [barcodeDigits]);
+  const normalizedBarcode = React.useMemo(
+    () => normalizeEanForRendering(barcodeDigits),
+    [barcodeDigits],
+  );
   const [barcodeError, setBarcodeError] = React.useState(false);
   const barcodeToShow = barcodeError ? null : normalizedBarcode;
   const handleBarcodeError = React.useCallback(() => {
@@ -283,14 +286,26 @@ function EanBarcode({
   );
 }
 
-function normalizeEan(
+/**
+* Normalizes digits into a bwip-js compatible EAN-13/EAN-8 input.
+*
+* Note: `2*` scale codes can come through with an invalid EAN-13 check digit; bwip-js rejects
+* these, so we recompute the check digit for rendering.
+*/
+function normalizeEanForRendering(
   value: string,
 ): { format: "EAN13" | "EAN8"; value: string } | null {
   const digits = value.replace(/\D/g, "");
   if (digits.length === 13) {
     const body = digits.slice(0, 12);
     const checkDigit = digits[12];
-    if (checkDigit !== ean13CheckDigit(body)) {
+    const expectedCheckDigit = ean13CheckDigit(body);
+    if (checkDigit !== expectedCheckDigit) {
+      // Some in-store "scale" codes use the reserved `2*` prefix and can come through with an
+      // incorrect check digit. bwip-js rejects these, so we normalize to the computed digit.
+      if (digits.startsWith("2")) {
+        return { format: "EAN13", value: `${body}${expectedCheckDigit}` };
+      }
       return null;
     }
 
