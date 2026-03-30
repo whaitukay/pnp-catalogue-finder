@@ -16,7 +16,6 @@ import type {
   ManifestEntry,
   ProductCache,
   ProductRow,
-  PromotionWindow,
 } from "../types";
 
 const DOCUMENT_DIR = FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? "";
@@ -103,55 +102,8 @@ function normalizeNullableText(value: unknown): string | null {
   return text || null;
 }
 
-function minTimestamp(values: Array<number | null>): number | null {
-  const filtered = values.filter((value): value is number => {
-    return typeof value === "number" && Number.isFinite(value);
-  });
-
-  if (filtered.length === 0) {
-    return null;
-  }
-
-  return filtered.reduce((min, value) => (value < min ? value : min), filtered[0]);
-}
-
-function maxTimestamp(values: Array<number | null>): number | null {
-  const filtered = values.filter((value): value is number => {
-    return typeof value === "number" && Number.isFinite(value);
-  });
-
-  if (filtered.length === 0) {
-    return null;
-  }
-
-  return filtered.reduce((max, value) => (value > max ? value : max), filtered[0]);
-}
-
 function isExpired(endTimestamp: number | null): boolean {
   return endTimestamp != null && endTimestamp < Date.now();
-}
-
-function formatPromotionRange(promotion: PromotionWindow): string {
-  const start = formatDateYyyyMmDd(promotion.startDate);
-  const end = formatDateYyyyMmDd(promotion.endDate);
-
-  if (start && end) {
-    return `${start} -> ${end}`;
-  }
-  if (start) {
-    return `Starts ${start}`;
-  }
-  if (end) {
-    return `Ends ${end}`;
-  }
-  return promotion.text || "";
-}
-
-function buildPromotionRangesText(promotions: PromotionWindow[]): string {
-  const parts = promotions
-    .map((promotion) => formatPromotionRange(promotion))
-    .filter(Boolean);
-  return Array.from(new Set(parts)).join(" | ");
 }
 
 function csvCell(value: string | number | boolean): string {
@@ -181,26 +133,8 @@ function normalizeSettings(raw: unknown): AppSettings {
   };
 }
 
-function normalizePromotion(promotion: unknown): PromotionWindow {
-  const raw = promotion as PromotionWindow | null;
-  return {
-    text: normalizeText(raw?.text),
-    startDate: parseDateTimestamp(raw?.startDate),
-    endDate: parseDateTimestamp(raw?.endDate, { endOfDay: true }),
-  };
-}
-
 function normalizeRow(row: unknown): ProductRow {
   const raw = row as ProductRow | null;
-  const promotions = Array.isArray(raw?.promotions)
-    ? raw.promotions.map((promotion) => normalizePromotion(promotion))
-    : [];
-  const promotionStartDate =
-    parseDateTimestamp(raw?.promotionStartDate) ??
-    minTimestamp(promotions.map((promotion) => promotion.startDate));
-  const promotionEndDate =
-    parseDateTimestamp(raw?.promotionEndDate, { endOfDay: true }) ??
-    maxTimestamp(promotions.map((promotion) => promotion.endDate));
 
   return {
     position:
@@ -214,11 +148,7 @@ function normalizeRow(row: unknown): ProductRow {
     barcode: normalizeText(raw?.barcode),
     price: normalizeText(raw?.price),
     promotion: normalizeText(raw?.promotion),
-    promotionStartDate,
-    promotionEndDate,
-    promotionRanges:
-      normalizeText(raw?.promotionRanges) || buildPromotionRangesText(promotions),
-    promotions,
+    promotionRanges: normalizeText(raw?.promotionRanges) || normalizeText(raw?.promotion),
     productUrl: normalizeText(raw?.productUrl),
     barcodeFound: Boolean(raw?.barcodeFound ?? normalizeText(raw?.barcode)),
     error: normalizeText(raw?.error),
@@ -228,12 +158,8 @@ function normalizeRow(row: unknown): ProductRow {
 function normalizeDumpValue(dump: unknown): CatalogueDump {
   const raw = dump as CatalogueDump | null;
   const rows = Array.isArray(raw?.rows) ? raw.rows.map((row) => normalizeRow(row)) : [];
-  const catalogueStartDate =
-    parseDateTimestamp(raw?.catalogueStartDate) ??
-    minTimestamp(rows.map((row) => row.promotionStartDate));
-  const catalogueEndDate =
-    parseDateTimestamp(raw?.catalogueEndDate, { endOfDay: true }) ??
-    maxTimestamp(rows.map((row) => row.promotionEndDate));
+  const catalogueStartDate = parseDateTimestamp(raw?.catalogueStartDate);
+  const catalogueEndDate = parseDateTimestamp(raw?.catalogueEndDate, { endOfDay: true });
   const barcodeCount =
     typeof raw?.barcodeCount === "number" && Number.isFinite(raw.barcodeCount)
       ? raw.barcodeCount
@@ -269,9 +195,6 @@ function normalizeManifestEntry(entry: unknown): ManifestEntry {
 
   const catalogueStartDate = parseDateTimestamp(raw?.catalogueStartDate);
   const catalogueEndDate = parseDateTimestamp(raw?.catalogueEndDate, { endOfDay: true });
-  const promotionStartDate = parseDateTimestamp(raw?.promotionStartDate);
-  const promotionEndDate = parseDateTimestamp(raw?.promotionEndDate, { endOfDay: true });
-  const effectiveEndDate = promotionEndDate ?? catalogueEndDate;
 
   return {
     catalogueId: normalizeText(raw?.catalogueId),
@@ -299,9 +222,7 @@ function normalizeManifestEntry(entry: unknown): ManifestEntry {
     catalogueImageUrl: normalizeNullableText(raw?.catalogueImageUrl),
     catalogueStartDate,
     catalogueEndDate,
-    promotionStartDate,
-    promotionEndDate,
-    expired: isExpired(effectiveEndDate),
+    expired: isExpired(catalogueEndDate),
     csvUri: normalizeText(raw?.csvUri),
     dumpUri: normalizeText(raw?.dumpUri),
   };
@@ -386,14 +307,6 @@ const CSV_FIELD_DEFINITIONS: Record<ExportFieldKey, CsvFieldDefinition> = {
   promotion: {
     header: "promotion",
     getValue: (row) => row.promotion,
-  },
-  promotionStartDate: {
-    header: "promotion_start_date",
-    getValue: (row) => formatDateYyyyMmDd(row.promotionStartDate),
-  },
-  promotionEndDate: {
-    header: "promotion_end_date",
-    getValue: (row) => formatDateYyyyMmDd(row.promotionEndDate),
   },
   promotionRanges: {
     header: "promotion_ranges",
@@ -537,8 +450,6 @@ export async function rebuildAllCsvExports(): Promise<number> {
       ...entry,
       csvUri: persisted.csvUri,
       dumpUri: persisted.dumpUri,
-      promotionStartDate: persisted.dump.catalogueStartDate,
-      promotionEndDate: persisted.dump.catalogueEndDate,
       expired: persisted.dump.expired,
       itemCount: persisted.dump.itemCount,
       barcodeCount: persisted.dump.barcodeCount,

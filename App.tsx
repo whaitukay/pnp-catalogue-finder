@@ -20,7 +20,6 @@ import {
 import {
   catalogueIdForTarget,
   discoverCatalogueTargets,
-  probeCatalogueWindow,
   scanCatalogue,
   syncAllMissingCatalogues,
 } from "./src/services/pnp";
@@ -103,9 +102,6 @@ export default function App(): React.ReactElement {
   const [cataloguePage, setCataloguePage] = useState(0);
   const [dumpRowsPage, setDumpRowsPage] = useState(0);
   const [dumpSearch, setDumpSearch] = useState("");
-  const [provisionalWindows, setProvisionalWindows] = useState<
-    Record<string, { promotionStartDate: number | null; promotionEndDate: number | null }>
-  >({});
 
   const normalizedStoreCode = useMemo(() => normalizeStoreCode(storeCode), [storeCode]);
 
@@ -121,9 +117,8 @@ export default function App(): React.ReactElement {
       cachedCatalogues,
       normalizedStoreCode,
       hideExpiredCatalogues,
-      provisionalWindows,
     );
-  }, [cachedCatalogues, hideExpiredCatalogues, normalizedStoreCode, provisionalWindows, siteTargets]);
+  }, [cachedCatalogues, hideExpiredCatalogues, normalizedStoreCode, siteTargets]);
 
   const pagedDirectoryItems = useMemo(() => {
     return paginate(directoryItems, cataloguePage, CATALOGUE_PAGE_SIZE);

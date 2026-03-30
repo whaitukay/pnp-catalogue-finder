@@ -57,8 +57,8 @@ export function DirectoryCatalogueCard({
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const safeAreaInsets = useSafeAreaInsets();
   const timingStatus = getCatalogueTimingStatus(
-    item.promotionStartDate,
-    item.promotionEndDate,
+    item.catalogueStartDate,
+    item.catalogueEndDate,
   );
   const [thumbnailLoadFailed, setThumbnailLoadFailed] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);

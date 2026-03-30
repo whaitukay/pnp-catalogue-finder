@@ -1,9 +1,3 @@
-export type PromotionWindow = {
-  text: string;
-  startDate: number | null;
-  endDate: number | null;
-};
-
 export type ExportFieldKey =
   | "position"
   | "catalogueLabel"
@@ -16,8 +10,6 @@ export type ExportFieldKey =
   | "barcode"
   | "price"
   | "promotion"
-  | "promotionStartDate"
-  | "promotionEndDate"
   | "promotionRanges"
   | "productUrl"
   | "barcodeFound"
@@ -48,12 +40,12 @@ export const EXPORT_FIELD_OPTIONS: ExportFieldOption[] = [
   {
     key: "catalogueStartDate",
     label: "Catalogue start date",
-    description: "Earliest promotion start found in the dump.",
+    description: "Catalogue start date when available.",
   },
   {
     key: "catalogueEndDate",
     label: "Catalogue end date",
-    description: "Latest promotion end found in the dump.",
+    description: "Catalogue end date when available.",
   },
   {
     key: "name",
@@ -86,19 +78,9 @@ export const EXPORT_FIELD_OPTIONS: ExportFieldOption[] = [
     description: "Joined promotion messages.",
   },
   {
-    key: "promotionStartDate",
-    label: "Promotion start",
-    description: "Earliest promotion start for the item.",
-  },
-  {
-    key: "promotionEndDate",
-    label: "Promotion end",
-    description: "Latest promotion end for the item.",
-  },
-  {
     key: "promotionRanges",
     label: "Promotion ranges",
-    description: "All promotion windows for the item.",
+    description: "Promotion messages or ranges for the item.",
   },
   {
     key: "productUrl",
@@ -166,10 +148,7 @@ export type ProductRow = {
   barcode: string;
   price: string;
   promotion: string;
-  promotionStartDate: number | null;
-  promotionEndDate: number | null;
   promotionRanges: string;
-  promotions: PromotionWindow[];
   productUrl: string;
   barcodeFound: boolean;
   error: string;
@@ -208,8 +187,6 @@ export type ManifestEntry = {
   catalogueImageUrl: string | null;
   catalogueStartDate: number | null;
   catalogueEndDate: number | null;
-  promotionStartDate: number | null;
-  promotionEndDate: number | null;
   expired: boolean;
   csvUri: string;
   dumpUri: string;
@@ -232,8 +209,6 @@ export type CatalogueListing = {
   exportedAt: number | null;
   catalogueStartDate: number | null;
   catalogueEndDate: number | null;
-  promotionStartDate: number | null;
-  promotionEndDate: number | null;
   expired: boolean;
   csvUri: string;
   dumpUri: string;
@@ -266,8 +241,6 @@ export type SyncItemResult = {
   missingBarcodes: number;
   sourceUrl: string;
   discoveredFrom: string;
-  promotionStartDate: number | null;
-  promotionEndDate: number | null;
   expired: boolean;
   message?: string;
 };

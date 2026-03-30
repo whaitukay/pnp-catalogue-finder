@@ -19,7 +19,7 @@ const catalogueStoreMocks = vi.hoisted(() => {
 
 vi.mock("./catalogueStore", () => catalogueStoreMocks);
 
-import { extractValidityDates, probeCatalogueWindow, pullCatalogueTarget } from "./pnp";
+import { extractValidityDates, pullCatalogueTarget } from "./pnp";
 
 describe("pnp mapper regression coverage", () => {
   beforeEach(() => {
@@ -100,6 +100,8 @@ describe("pnp mapper regression coverage", () => {
         slug: "burger-fridays",
         label: "burger-fridays",
         query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
+        catalogueStartDate: Date.parse("2026-03-25T22:00:00.000Z"),
+        catalogueEndDate: Date.parse("2026-03-29T21:59:59.999Z"),
       },
       "WC21",
       true,
@@ -109,8 +111,8 @@ describe("pnp mapper regression coverage", () => {
     expect(outcome.dump.catalogueId).toBe("WC21:burger-fridays");
     expect(outcome.dump.itemCount).toBe(1);
     expect(outcome.dump.barcodeCount).toBe(1);
-    expect(outcome.dump.catalogueStartDate).toBe(Date.parse("2026-03-26T22:00:00.000Z"));
-    expect(outcome.dump.catalogueEndDate).toBe(Date.parse("2026-03-27T21:59:59.000Z"));
+    expect(outcome.dump.catalogueStartDate).toBe(Date.parse("2026-03-25T22:00:00.000Z"));
+    expect(outcome.dump.catalogueEndDate).toBe(Date.parse("2026-03-29T21:59:59.999Z"));
     expect(outcome.dump.expired).toBe(false);
 
     expect(outcome.dump.rows).toHaveLength(1);
@@ -126,56 +128,8 @@ describe("pnp mapper regression coverage", () => {
       productUrl: "https://www.pnp.co.za/pnp-beef-burger-400g/p/000000000000886223_EA",
       barcodeFound: true,
       error: "",
-      promotionStartDate: Date.parse("2026-03-26T22:00:00.000Z"),
-      promotionEndDate: Date.parse("2026-03-27T21:59:59.000Z"),
-      promotionRanges:
-        "2026-03-27 -> 2026-03-27 [Combo For R100.00]",
+      promotionRanges: "Combo For R100.00",
     });
-  });
-
-  it("probes a catalogue window from a lightweight search call", async () => {
-    const fetchMock = vi.fn(async (url: string) => {
-      if (url.includes("/products/search?") && url.includes("fields=products(potentialPromotions(FULL))")) {
-        return {
-          ok: true,
-          text: async () =>
-            JSON.stringify({
-              pagination: { totalPages: 1, totalResults: 1 },
-              products: [
-                {
-                  potentialPromotions: [
-                    {
-                      promotionTextMessage: "Combo For R100.00 ",
-                      startDate: "2026-03-26T22:00:00+0000",
-                      endDate: "2026-03-27T21:59:59+0000",
-                    },
-                  ],
-                },
-              ],
-            }),
-        };
-      }
-
-      return {
-        ok: false,
-        status: 404,
-        statusText: "Not Found",
-        text: async () => JSON.stringify({ errors: [{ message: "Not Found" }] }),
-      };
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const window = await probeCatalogueWindow(
-      {
-        slug: "burger-fridays",
-        label: "burger-fridays",
-        query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
-      },
-      "WC21",
-    );
-
-    expect(window.promotionStartDate).toBe(Date.parse("2026-03-26T22:00:00.000Z"));
-    expect(window.promotionEndDate).toBe(Date.parse("2026-03-27T21:59:59.000Z"));
   });
 });
 
