@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import * as DocumentPicker from "expo-document-picker";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,13 +12,17 @@ import {
   defaultEmailBody,
   defaultEmailSubject,
   ensureCsvForDump,
+  deleteImport,
   ensureStorage,
   listCachedCatalogues,
+  listImports,
   loadDump,
+  loadImport,
   loadManifestCache,
   loadSettings,
   rebuildAllCsvExports,
   saveDump,
+  saveImport,
   saveSettings,
 } from "./src/services/catalogueStore";
 import {
@@ -28,6 +33,8 @@ import {
 } from "./src/services/pnp";
 import { CataloguesScreen } from "./src/screens/CataloguesScreen";
 import { DumpsScreen } from "./src/screens/DumpsScreen";
+import { ImportViewScreen } from "./src/screens/ImportViewScreen";
+import { ImportsScreen } from "./src/screens/ImportsScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { BRAND } from "./src/theme";
 import type {
@@ -35,9 +42,12 @@ import type {
   CatalogueDump,
   CatalogueTarget,
   ExportFieldKey,
+  ImportedCatalogue,
+  ImportedCatalogueSummary,
   ManifestEntry,
   SyncSummary,
 } from "./src/types";
+import { parseImportFile } from "./src/utils/importParser";
 import {
   arraysEqual,
   buildDirectoryItems,
@@ -47,18 +57,22 @@ import {
   rowMatchesSearch,
 } from "./src/utils/catalogueUi";
 import type { DirectoryItem } from "./src/utils/catalogueUi";
+import { importItemMatchesSearch } from "./src/utils/importsUi";
 
 const pnpLogo = require("./assets/images/app-splash-icon.png");
 
-type TabKey = "catalogues" | "settings";
+type TabKey = "catalogues" | "imports" | "settings";
 
 const TAB_ORDER: Array<{ key: TabKey; label: string }> = [
   { key: "catalogues", label: "Catalogues" },
+  { key: "imports", label: "Imports" },
   { key: "settings", label: "Settings" },
 ];
 
 const CATALOGUE_PAGE_SIZE = 8;
 const DUMP_ROWS_PAGE_SIZE = 24;
+const IMPORTS_PAGE_SIZE = 8;
+const IMPORT_ITEMS_PAGE_SIZE = 24;
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -68,7 +82,7 @@ function errorMessage(error: unknown): string {
 }
 
 /**
-* Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Settings) plus the dump detail view.
+* Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Imports, Settings) plus the dump detail view.
 *
 * The component maintains UI navigation and data state (settings, discovered targets, cached catalogue dumps, selected dump, sync summary, pagination and search), exposes actions for refreshing/discovering catalogues, pulling/syncing catalogue data, opening cached dumps, emailing/sharing CSV exports, and saving settings, and passes derived and control props down to the screen components.
 *
@@ -106,6 +120,14 @@ export default function App(): React.ReactElement {
   const [cataloguePage, setCataloguePage] = useState(0);
   const [dumpRowsPage, setDumpRowsPage] = useState(0);
   const [dumpSearch, setDumpSearch] = useState("");
+  const [importsList, setImportsList] = useState<ImportedCatalogueSummary[]>([]);
+  const [importsPage, setImportsPage] = useState(0);
+  const [selectedImport, setSelectedImport] = useState<ImportedCatalogue | null>(null);
+  const [importSearch, setImportSearch] = useState("");
+  const [importPage, setImportPage] = useState(0);
+  const [importBusy, setImportBusy] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importStatus, setImportStatus] = useState("");
 
   const normalizedStoreCode = useMemo(() => normalizeStoreCode(storeCode), [storeCode]);
 
@@ -128,6 +150,10 @@ export default function App(): React.ReactElement {
     return paginate(directoryItems, cataloguePage, CATALOGUE_PAGE_SIZE);
   }, [cataloguePage, directoryItems]);
 
+  const pagedImportsList = useMemo(() => {
+    return paginate(importsList, importsPage, IMPORTS_PAGE_SIZE);
+  }, [importsList, importsPage]);
+
   const filteredDumpRows = useMemo(() => {
     if (!selectedDump) {
       return [];
@@ -138,6 +164,17 @@ export default function App(): React.ReactElement {
   const pagedDumpRows = useMemo(() => {
     return paginate(filteredDumpRows, dumpRowsPage, DUMP_ROWS_PAGE_SIZE);
   }, [dumpRowsPage, filteredDumpRows]);
+
+  const filteredImportItems = useMemo(() => {
+    if (!selectedImport) {
+      return [];
+    }
+    return selectedImport.items.filter((item) => importItemMatchesSearch(item, importSearch));
+  }, [importSearch, selectedImport]);
+
+  const pagedImportItems = useMemo(() => {
+    return paginate(filteredImportItems, importPage, IMPORT_ITEMS_PAGE_SIZE);
+  }, [filteredImportItems, importPage]);
 
   const settingsDirty = useMemo(() => {
     return (
@@ -152,8 +189,16 @@ export default function App(): React.ReactElement {
   }, [directoryItems.length, hideExpiredCatalogues]);
 
   useEffect(() => {
+    setImportsPage(0);
+  }, [importsList.length]);
+
+  useEffect(() => {
     setDumpRowsPage(0);
   }, [dumpSearch, filteredDumpRows.length, selectedDump?.catalogueId]);
+
+  useEffect(() => {
+    setImportPage(0);
+  }, [importSearch, filteredImportItems.length, selectedImport?.id]);
 
   const lastDownloadProgressRef = useRef<{ updatedAt: number; percent: number | null }>({
     updatedAt: 0,
@@ -262,6 +307,105 @@ export default function App(): React.ReactElement {
     }
   }, [storeCode]);
 
+  async function refreshImportsList(options?: { showBusy?: boolean }): Promise<void> {
+    if (options?.showBusy) {
+      setImportBusy("Loading imports...");
+    }
+
+    setImportError("");
+
+    try {
+      const imported = await listImports();
+      setImportsList(imported);
+    } catch (error) {
+      setImportError(errorMessage(error));
+    } finally {
+      if (options?.showBusy) {
+        setImportBusy("");
+      }
+    }
+  }
+
+  async function handleImportFile(): Promise<void> {
+    setImportBusy("Opening file picker...");
+    setImportError("");
+    setImportStatus("");
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          "text/csv",
+          "text/comma-separated-values",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/vnd.ms-excel",
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri || !asset.name) {
+        throw new Error("No import file selected.");
+      }
+
+      setImportBusy(`Importing ${asset.name}...`);
+
+      const parsed = await parseImportFile(asset.uri, asset.name, asset.mimeType);
+      await saveImport(parsed);
+      await refreshImportsList();
+
+      setImportStatus(
+        `${parsed.name}: imported ${parsed.barcodeCount}/${parsed.itemCount} barcode(s).`,
+      );
+    } catch (error) {
+      setImportError(errorMessage(error));
+    } finally {
+      setImportBusy("");
+    }
+  }
+
+  async function handleOpenImport(id: string): Promise<void> {
+    setImportBusy("Opening import...");
+    setImportError("");
+
+    try {
+      const imported = await loadImport(id);
+      if (!imported) {
+        throw new Error("That import is no longer available.");
+      }
+      setSelectedImport(imported);
+      setImportSearch("");
+      setImportPage(0);
+    } catch (error) {
+      setImportError(errorMessage(error));
+    } finally {
+      setImportBusy("");
+    }
+  }
+
+  async function handleDeleteImport(id: string): Promise<void> {
+    setImportBusy("Deleting import...");
+    setImportError("");
+    setImportStatus("");
+
+    try {
+      await deleteImport(id);
+      if (selectedImport?.id === id) {
+        setSelectedImport(null);
+      }
+      await refreshImportsList();
+      setImportStatus("Import deleted.");
+    } catch (error) {
+      setImportError(errorMessage(error));
+    } finally {
+      setImportBusy("");
+    }
+  }
+
   useEffect(() => {
     const bootstrap = async (): Promise<void> => {
       try {
@@ -275,6 +419,7 @@ export default function App(): React.ReactElement {
           nextStoreCode: settings.storeCode,
           showLoadedMessage: false,
         });
+        await refreshImportsList();
       } catch (error) {
         setErrorText(errorMessage(error));
       }
@@ -526,6 +671,11 @@ export default function App(): React.ReactElement {
     void sendEmail(catalogueId);
   }
 
+  const showingImports = activeTab === "imports";
+  const statusBannerBusyLabel = showingImports ? importBusy : busyLabel;
+  const statusBannerErrorText = showingImports ? importError : errorText;
+  const statusBannerMessage = showingImports ? importStatus : statusMessage;
+
   return (
     <SafeAreaProvider>
       <SafeAreaView
@@ -550,7 +700,12 @@ export default function App(): React.ReactElement {
               return (
                 <Pressable
                   key={tab.key}
-                  onPress={() => setActiveTab(tab.key)}
+                  onPress={() => {
+                    setActiveTab(tab.key);
+                    if (tab.key !== "imports") {
+                      setSelectedImport(null);
+                    }
+                  }}
                   style={[styles.tabButton, active && styles.tabButtonActive]}
                 >
                   <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
@@ -560,13 +715,18 @@ export default function App(): React.ReactElement {
           </View>
 
           <StatusBanner
-            busyLabel={busyLabel}
-            errorText={errorText}
+            busyLabel={statusBannerBusyLabel}
+            errorText={statusBannerErrorText}
             onDismiss={() => {
+              if (showingImports) {
+                setImportError("");
+                setImportStatus("");
+                return;
+              }
               setErrorText("");
               setStatusMessage("");
             }}
-            statusMessage={statusMessage}
+            statusMessage={statusBannerMessage}
           />
 
           <View style={styles.flex}>
@@ -612,6 +772,40 @@ export default function App(): React.ReactElement {
                   pagedDirectoryItems={pagedDirectoryItems}
                   siteCount={siteTargets.length}
                   syncSummary={syncSummary}
+                />
+              )
+            ) : null}
+
+            {activeTab === "imports" ? (
+              selectedImport ? (
+                <ImportViewScreen
+                  filteredImportItems={filteredImportItems}
+                  importPage={importPage}
+                  importSearch={importSearch}
+                  pageSize={IMPORT_ITEMS_PAGE_SIZE}
+                  onBack={() => {
+                    setSelectedImport(null);
+                  }}
+                  onImportPageChange={setImportPage}
+                  onImportSearchChange={setImportSearch}
+                  pagedImportItems={pagedImportItems}
+                  selectedImport={selectedImport}
+                />
+              ) : (
+                <ImportsScreen
+                  importsList={importsList}
+                  importsPage={importsPage}
+                  onDelete={(id) => {
+                    void handleDeleteImport(id);
+                  }}
+                  onImport={() => {
+                    void handleImportFile();
+                  }}
+                  onOpen={(id) => {
+                    void handleOpenImport(id);
+                  }}
+                  onImportsPageChange={setImportsPage}
+                  pagedImportsList={pagedImportsList}
                 />
               )
             ) : null}

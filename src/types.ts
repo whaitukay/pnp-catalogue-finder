@@ -214,6 +214,29 @@ export type CatalogueListing = {
   dumpUri: string;
 };
 
+export type ImportedItem = {
+  position: number;
+  baseProduct: string;
+  barcode: string;
+  barcodeFound: boolean;
+};
+
+export type ImportedCatalogue = {
+  id: string;
+  name: string;
+  importedAt: number;
+  itemCount: number;
+  barcodeCount: number;
+  items: ImportedItem[];
+};
+
+export type ImportedCatalogueSummary = Omit<ImportedCatalogue, "items">;
+
+export type ImportsManifest = {
+  version: number;
+  imports: Record<string, ImportedCatalogueSummary>;
+};
+
 export type ProductCache = {
   version: number;
   items: Record<string, ProductDetail>;

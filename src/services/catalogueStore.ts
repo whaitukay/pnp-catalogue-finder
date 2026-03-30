@@ -8,12 +8,17 @@ import {
   formatDateYyyyMmDd,
   parseDateTimestamp,
 } from "../utils/dateUtils";
+import { safeFileName } from "../utils/fileNames";
 import type {
   AppSettings,
   CatalogueDump,
   ExportFieldKey,
+  ImportedCatalogue,
+  ImportedItem,
+  ImportedCatalogueSummary,
   ManifestCache,
   ManifestEntry,
+  ImportsManifest,
   ProductCache,
   ProductRow,
 } from "../types";
@@ -28,9 +33,11 @@ const ROOT_DIR = `${DOCUMENT_DIR}catalogue-helper/`;
 const CACHE_DIR = `${ROOT_DIR}cache/`;
 const DUMPS_DIR = `${ROOT_DIR}dumps/`;
 const EXPORTS_DIR = `${ROOT_DIR}exports/`;
+const IMPORTS_DIR = `${ROOT_DIR}imports/`;
 const SETTINGS_URI = `${ROOT_DIR}settings.json`;
 const PRODUCT_CACHE_URI = `${CACHE_DIR}product-details.json`;
 const MANIFEST_URI = `${CACHE_DIR}catalogue-manifests.json`;
+const IMPORTS_MANIFEST_URI = `${CACHE_DIR}imports-manifest.json`;
 
 export const DEFAULT_SETTINGS: AppSettings = {
   storeCode: "WC21",
@@ -48,6 +55,11 @@ const DEFAULT_MANIFEST_CACHE: ManifestCache = {
   catalogues: {},
 };
 
+const DEFAULT_IMPORTS_MANIFEST: ImportsManifest = {
+  version: 1,
+  imports: {},
+};
+
 const EXPORT_FIELD_SET = new Set<ExportFieldKey>(
   EXPORT_FIELD_OPTIONS.map((item) => item.key),
 );
@@ -56,6 +68,8 @@ type CsvFieldDefinition = {
   header: string;
   getValue: (row: ProductRow, dump: CatalogueDump) => string;
 };
+
+export { safeFileName };
 
 async function ensureDirectory(uri: string): Promise<void> {
   try {
@@ -190,6 +204,88 @@ function normalizeDumpValue(dump: unknown): CatalogueDump {
   };
 }
 
+function normalizeImportedItem(item: unknown, index: number): ImportedItem {
+  const raw = item as ImportedItem | null;
+  const baseProduct = normalizeText(raw?.baseProduct);
+  const barcode = normalizeText(raw?.barcode);
+  const position =
+    typeof raw?.position === "number" && Number.isFinite(raw.position)
+      ? raw.position
+      : index + 1;
+
+  return {
+    position,
+    baseProduct,
+    barcode,
+    barcodeFound: Boolean(raw?.barcodeFound ?? /\d/.test(barcode)),
+  };
+}
+
+function normalizeImportedCatalogueValue(catalogue: unknown): ImportedCatalogue {
+  const raw = catalogue as ImportedCatalogue | null;
+  const items = Array.isArray(raw?.items)
+    ? raw.items.map((item, index) => normalizeImportedItem(item, index))
+    : [];
+  const barcodeCount =
+    typeof raw?.barcodeCount === "number" && Number.isFinite(raw.barcodeCount)
+      ? raw.barcodeCount
+      : items.filter((item) => item.barcodeFound).length;
+
+  return {
+    id: normalizeText(raw?.id),
+    name: normalizeText(raw?.name),
+    importedAt:
+      typeof raw?.importedAt === "number" && Number.isFinite(raw.importedAt)
+        ? raw.importedAt
+        : Date.now(),
+    itemCount:
+      typeof raw?.itemCount === "number" && Number.isFinite(raw.itemCount)
+        ? raw.itemCount
+        : items.length,
+    barcodeCount,
+    items,
+  };
+}
+
+function normalizeImportedCatalogueSummary(
+  summary: unknown,
+): ImportedCatalogueSummary {
+  const raw = summary as ImportedCatalogueSummary | null;
+  return {
+    id: normalizeText(raw?.id),
+    name: normalizeText(raw?.name),
+    importedAt:
+      typeof raw?.importedAt === "number" && Number.isFinite(raw.importedAt)
+        ? raw.importedAt
+        : 0,
+    itemCount:
+      typeof raw?.itemCount === "number" && Number.isFinite(raw.itemCount)
+        ? raw.itemCount
+        : 0,
+    barcodeCount:
+      typeof raw?.barcodeCount === "number" && Number.isFinite(raw.barcodeCount)
+        ? raw.barcodeCount
+        : 0,
+  };
+}
+
+function normalizeImportsManifest(raw: unknown): ImportsManifest {
+  const imports = Object.fromEntries(
+    Object.entries((raw as ImportsManifest | null)?.imports ?? {}).map(([key, value]) => [
+      key,
+      normalizeImportedCatalogueSummary(value),
+    ]),
+  );
+
+  return {
+    version:
+      typeof (raw as ImportsManifest | null)?.version === "number"
+        ? (raw as ImportsManifest).version
+        : DEFAULT_IMPORTS_MANIFEST.version,
+    imports,
+  };
+}
+
 function normalizeManifestEntry(entry: unknown): ManifestEntry {
   const raw = entry as ManifestEntry | null;
 
@@ -261,6 +357,10 @@ function buildDumpPaths(
     csvUri: dump.csvUri || `${EXPORTS_DIR}${baseName}-barcodes.csv`,
     dumpUri: `${DUMPS_DIR}${baseName}-dump.json`,
   };
+}
+
+function buildImportUri(id: string): string {
+  return `${IMPORTS_DIR}${safeFileName(id)}.json`;
 }
 
 const CSV_FIELD_DEFINITIONS: Record<ExportFieldKey, CsvFieldDefinition> = {
@@ -351,23 +451,13 @@ async function writeCsvForDump(
   });
 }
 
-export function safeFileName(value: string): string {
-  return (
-    value
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/-{2,}/g, "-")
-      .replace(/^-+|-+$/g, "") || "catalogue-specials"
-  );
-}
-
 export async function ensureStorage(): Promise<void> {
   await Promise.all([
     ensureDirectory(ROOT_DIR),
     ensureDirectory(CACHE_DIR),
     ensureDirectory(DUMPS_DIR),
     ensureDirectory(EXPORTS_DIR),
+    ensureDirectory(IMPORTS_DIR),
   ]);
 }
 
@@ -395,6 +485,15 @@ export async function loadManifestCache(): Promise<ManifestCache> {
 
 export async function saveManifestCache(cache: ManifestCache): Promise<void> {
   await writeJson(MANIFEST_URI, normalizeManifestCache(cache));
+}
+
+async function loadImportsManifest(): Promise<ImportsManifest> {
+  const raw = await readJson(IMPORTS_MANIFEST_URI, DEFAULT_IMPORTS_MANIFEST);
+  return normalizeImportsManifest(raw);
+}
+
+async function saveImportsManifest(manifest: ImportsManifest): Promise<void> {
+  await writeJson(IMPORTS_MANIFEST_URI, normalizeImportsManifest(manifest));
 }
 
 export async function fileExists(uri: string): Promise<boolean> {
@@ -527,6 +626,86 @@ export async function listCachedCatalogues(storeCode?: string): Promise<Manifest
       }
       return right.exportedAt - left.exportedAt || left.label.localeCompare(right.label);
     });
+}
+
+export async function saveImport(catalogue: ImportedCatalogue): Promise<ImportedCatalogue> {
+  await ensureStorage();
+
+  const normalizedCatalogue = normalizeImportedCatalogueValue(catalogue);
+  if (!normalizedCatalogue.id) {
+    throw new Error("Imported catalogue id is required.");
+  }
+
+  const manifest = await loadImportsManifest();
+  const { items: _items, ...summary } = normalizedCatalogue;
+
+  manifest.imports[normalizedCatalogue.id] = summary;
+
+  await writeJson(buildImportUri(normalizedCatalogue.id), normalizedCatalogue);
+  await saveImportsManifest(manifest);
+
+  return normalizedCatalogue;
+}
+
+export async function loadImport(id: string): Promise<ImportedCatalogue | null> {
+  const manifest = await loadImportsManifest();
+  if (!manifest.imports[id]) {
+    return null;
+  }
+
+  const raw = await readJson<ImportedCatalogue | null>(buildImportUri(id), null);
+  if (!raw) {
+    delete manifest.imports[id];
+    await saveImportsManifest(manifest);
+    return null;
+  }
+  return normalizeImportedCatalogueValue(raw);
+}
+
+export async function listImports(): Promise<ImportedCatalogueSummary[]> {
+  let manifest = await loadImportsManifest();
+  const entries = Object.keys(manifest.imports);
+  if (entries.length === 0) {
+    return [];
+  }
+
+  const existence = await Promise.all(
+    entries.map(async (id) => ({ id, exists: await fileExists(buildImportUri(id)) })),
+  );
+  const staleEntries = existence.filter((entry) => !entry.exists);
+  if (staleEntries.length > 0) {
+    manifest = await loadImportsManifest();
+    for (const stale of staleEntries) {
+      delete manifest.imports[stale.id];
+    }
+    await saveImportsManifest(manifest);
+  }
+
+  return Object.values(manifest.imports).sort((left, right) => {
+    const timestampDiff = right.importedAt - left.importedAt;
+    if (timestampDiff !== 0) {
+      return timestampDiff;
+    }
+    return left.name.localeCompare(right.name);
+  });
+}
+
+export async function deleteImport(id: string): Promise<void> {
+  await ensureStorage();
+
+  const manifest = await loadImportsManifest();
+  if (!manifest.imports[id]) {
+    return;
+  }
+
+  delete manifest.imports[id];
+  await saveImportsManifest(manifest);
+
+  try {
+    await FileSystem.deleteAsync(buildImportUri(id), { idempotent: true });
+  } catch {
+    // Best-effort delete, in case the file is already missing.
+  }
 }
 
 export function defaultEmailSubject(entry: ManifestEntry | CatalogueDump): string {

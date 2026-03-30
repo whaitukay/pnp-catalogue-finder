@@ -2,12 +2,10 @@ import React from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  Image,
   LayoutAnimation,
   KeyboardAvoidingView,
   Linking,
   Platform,
-  PixelRatio,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,16 +16,12 @@ import {
 } from "react-native";
 import type { LayoutAnimationConfig } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-import * as bwipjs from "@bwip-js/react-native";
-
+import { BarcodeImage } from "../components/BarcodeImage";
 import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge } from "../components/StatusBadge";
 import { BRAND, sharedStyles } from "../theme";
 import type { CatalogueDump, ProductRow } from "../types";
 import {
-  ean13ToRawSbs,
-  isScaleItemEan13,
   normalizeBarcodeForRendering,
 } from "../utils/barcodes";
 import { formatDateStamp, getCatalogueTimingStatus } from "../utils/catalogueUi";
@@ -390,111 +384,5 @@ function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
       </View>
     </View>
   );
-}
-
-function BarcodeImage({
-  format,
-  value,
-  onError,
-}: {
-  format: "EAN13" | "EAN8";
-  value: string;
-  onError: () => void;
-}): React.ReactElement | null {
-  const [source, setSource] = React.useState<bwipjs.DataURL | null>(null);
-
-  React.useEffect(() => {
-    const scale = Math.max(1, Math.round(PixelRatio.get()));
-    const isScaleCode = format === "EAN13" && isScaleItemEan13(value);
-    const rawSbs = isScaleCode ? ean13ToRawSbs(value) : null;
-    const bcid = format === "EAN8" ? "ean8" : isScaleCode ? "raw" : "ean13";
-    if (isScaleCode && !rawSbs) {
-      setSource(null);
-      onError();
-      return;
-    }
-
-    const options: Parameters<typeof bwipjs.toDataURL>[0] = {
-      bcid,
-      text: isScaleCode ? rawSbs! : value,
-      scale,
-      height: 12,
-      includetext: true,
-      ...(isScaleCode ? { alttext: value } : {}),
-    };
-
-    const cacheKey = `${bcid}:${options.text}:${scale}`;
-    const cachedSource = getBarcodeImageFromCache(cacheKey);
-    if (cachedSource) {
-      setSource(cachedSource);
-      return;
-    }
-
-    let cancelled = false;
-    setSource(null);
-
-    bwipjs
-      .toDataURL(options)
-      .then((nextSource: bwipjs.DataURL) => {
-        putBarcodeImageInCache(cacheKey, nextSource);
-
-        if (!cancelled) {
-          setSource(nextSource);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          console.warn(`Failed to generate barcode image (${format})`, {
-            valueLength: value.length,
-            error,
-          });
-          onError();
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [format, value, onError]);
-
-  if (!source) {
-    return null;
-  }
-
-  return (
-    <Image
-      resizeMode="contain"
-      source={{ uri: source.uri }}
-      style={{
-        width: "100%",
-        height: 72,
-      }}
-    />
-  );
-}
-
-// Keep this small: `bwipjs.toDataURL()` returns a base64 `data:` URI, which can be memory-heavy.
-const BARCODE_IMAGE_CACHE_LIMIT = 100;
-const barcodeImageCache = new Map<string, bwipjs.DataURL>();
-
-function getBarcodeImageFromCache(key: string): bwipjs.DataURL | null {
-  const cached = barcodeImageCache.get(key);
-  if (!cached) {
-    return null;
-  }
-
-  barcodeImageCache.delete(key);
-  barcodeImageCache.set(key, cached);
-  return cached;
-}
-
-function putBarcodeImageInCache(key: string, value: bwipjs.DataURL): void {
-  barcodeImageCache.set(key, value);
-  if (barcodeImageCache.size > BARCODE_IMAGE_CACHE_LIMIT) {
-    const keyToEvict = barcodeImageCache.keys().next().value;
-    if (typeof keyToEvict === "string") {
-      barcodeImageCache.delete(keyToEvict);
-    }
-  }
 }
 
