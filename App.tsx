@@ -14,6 +14,7 @@ import {
   ensureStorage,
   listCachedCatalogues,
   loadDump,
+  loadManifestCache,
   loadSettings,
   rebuildAllCsvExports,
   saveSettings,
@@ -391,7 +392,17 @@ export default function App(): React.ReactElement {
   );
 
   async function sendEmail(catalogueId: string): Promise<void> {
-    const entry = cachedCatalogues.find((item) => item.catalogueId === catalogueId) ?? null;
+    let entry = cachedCatalogues.find((item) => item.catalogueId === catalogueId) ?? null;
+
+    if (!entry && selectedDump?.catalogueId === catalogueId) {
+      try {
+        const manifest = await loadManifestCache();
+        entry = manifest.catalogues[catalogueId] ?? null;
+      } catch (error) {
+        setErrorText(errorMessage(error));
+        return;
+      }
+    }
 
     if (!entry || !entry.dumpUri) {
       Alert.alert("No catalogue selected", "That catalogue is not available for email.");
