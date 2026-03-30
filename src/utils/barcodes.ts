@@ -1,14 +1,14 @@
 export type RenderableBarcode = {
-  format: "EAN13" | "EAN8" | "CODE128";
+  format: "EAN13" | "EAN8";
   value: string;
 };
 
 /**
-  * Normalizes a raw barcode string into a renderable format + payload.
-  *
-  * Intended for rendering only: it may strip formatting characters and append or recompute check
-  * digits for some formats.
-  */
+* Normalizes a raw barcode string into a renderable format + payload.
+*
+* Intended for rendering only: it may strip formatting characters and append check digits for
+* some formats.
+*/
 export function normalizeBarcodeForRendering(value: string): RenderableBarcode | null {
   const raw = value.trim();
   const digits = raw.replace(/\D/g, "");
@@ -20,15 +20,15 @@ export function normalizeBarcodeForRendering(value: string): RenderableBarcode |
   if (digits.length === 13) {
     const body = digits.slice(0, 12);
     const expectedCheckDigit = ean13CheckDigit(body);
+    const checkDigit = digits[12];
 
-    // PnP occasionally returns scale codes (reserved `2*` prefix) with a non-EAN check digit.
-    // Barcode scanners often reject them unless the check digit is corrected, so normalize by
-    // recomputing and replacing the final digit for rendering.
+    // PnP occasionally returns restricted distribution scale codes (20-29) with an incorrect EAN-13
+    // check digit. Some downstream systems expect the original digits, so for these codes we keep
+    // the provided check digit and let the renderer handle it.
     if (digits.startsWith("2")) {
-      return { format: "EAN13", value: `${body}${expectedCheckDigit}` };
+      return { format: "EAN13", value: digits };
     }
 
-    const checkDigit = digits[12];
     if (checkDigit !== expectedCheckDigit) {
       return null;
     }
@@ -64,6 +64,120 @@ export function normalizeBarcodeForRendering(value: string): RenderableBarcode |
 
   return null;
 }
+
+export function ean13ToRawSbs(value: string): string | null {
+  if (value.length !== 13 || /\D/.test(value)) {
+    return null;
+  }
+
+  const firstDigit = Number(value[0]);
+  const parity = EAN13_PARITY[firstDigit];
+  if (!parity) {
+    return null;
+  }
+
+  let bits = "101";
+  for (let index = 0; index < 6; index += 1) {
+    const digit = Number(value[index + 1]);
+    const code = parity[index] === "G" ? EAN13_G[digit] : EAN13_L[digit];
+    if (!code) {
+      return null;
+    }
+
+    bits += code;
+  }
+
+  bits += "01010";
+  for (let index = 0; index < 6; index += 1) {
+    const digit = Number(value[index + 7]);
+    const code = EAN13_R[digit];
+    if (!code) {
+      return null;
+    }
+
+    bits += code;
+  }
+
+  bits += "101";
+
+  if (bits[0] !== "1") {
+    return null;
+  }
+
+  const runs: number[] = [];
+  let current = bits[0];
+  let count = 1;
+  for (let index = 1; index < bits.length; index += 1) {
+    const bit = bits[index];
+    if (bit === current) {
+      count += 1;
+      continue;
+    }
+
+    runs.push(count);
+    current = bit;
+    count = 1;
+  }
+  runs.push(count);
+
+  if (runs.some((run) => run < 1 || run > 9)) {
+    return null;
+  }
+
+  return runs.map(String).join("");
+}
+
+const EAN13_L = [
+  "0001101",
+  "0011001",
+  "0010011",
+  "0111101",
+  "0100011",
+  "0110001",
+  "0101111",
+  "0111011",
+  "0110111",
+  "0001011",
+];
+
+const EAN13_G = [
+  "0100111",
+  "0110011",
+  "0011011",
+  "0100001",
+  "0011101",
+  "0111001",
+  "0000101",
+  "0010001",
+  "0001001",
+  "0010111",
+];
+
+const EAN13_R = [
+  "1110010",
+  "1100110",
+  "1101100",
+  "1000010",
+  "1011100",
+  "1001110",
+  "1010000",
+  "1000100",
+  "1001000",
+  "1110100",
+];
+
+const EAN13_PARITY = [
+  "LLLLLL",
+  "LLGLGG",
+  "LLGGLG",
+  "LLGGGL",
+  "LGLLGG",
+  "LGGLLG",
+  "LGGGLL",
+  "LGLGLG",
+  "LGLGGL",
+  "LGGLGL",
+];
 
 function ean13CheckDigit(twelveDigits: string): string {
   let sum = 0;

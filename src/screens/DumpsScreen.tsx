@@ -17,7 +17,7 @@ import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge } from "../components/StatusBadge";
 import { sharedStyles } from "../theme";
 import type { CatalogueDump, ProductRow } from "../types";
-import { normalizeBarcodeForRendering } from "../utils/barcodes";
+import { ean13ToRawSbs, normalizeBarcodeForRendering } from "../utils/barcodes";
 import { formatDateStamp, getCatalogueTimingStatus } from "../utils/catalogueUi";
 
 type DumpsScreenProps = {
@@ -221,7 +221,7 @@ function BarcodeImage({
   value,
   onError,
 }: {
-  format: "EAN13" | "EAN8" | "CODE128";
+  format: "EAN13" | "EAN8";
   value: string;
   onError: () => void;
 }): React.ReactElement | null {
@@ -239,11 +239,21 @@ function BarcodeImage({
     let cancelled = false;
     setSource(null);
 
+    const isScaleCode = format === "EAN13" && value.length === 13 && value.startsWith("2");
+    const rawSbs = isScaleCode ? ean13ToRawSbs(value) : null;
+    const bcid = format === "EAN8" ? "ean8" : isScaleCode ? "raw" : "ean13";
+    if (isScaleCode && !rawSbs) {
+      onError();
+      return () => {
+        cancelled = true;
+      };
+    }
+
     bwipjs
       .toDataURL({
-        bcid:
-          format === "EAN13" ? "ean13" : format === "EAN8" ? "ean8" : "code128",
-        text: value,
+        bcid,
+        text: isScaleCode ? rawSbs! : value,
+        alttext: isScaleCode ? value : undefined,
         scale,
         height: 12,
         includetext: true,
