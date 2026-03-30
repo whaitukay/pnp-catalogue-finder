@@ -20,6 +20,12 @@ function normalizeDigitsCell(value: unknown): string {
     return "";
   }
 
+  if (/[eE][+-]?\d+/.test(text)) {
+    throw new Error(
+      "Import contains values in scientific notation. Format the Base Product/Barcode columns as text and re-export the file.",
+    );
+  }
+
   const cleaned = text.replace(/\.0$/, "");
   return cleaned.replace(/\D+/g, "");
 }
