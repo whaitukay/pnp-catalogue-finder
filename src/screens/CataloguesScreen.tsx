@@ -1,97 +1,66 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 
-import { DirectoryCatalogueCard } from "../components/DirectoryCatalogueCard";
-import { PaginationControls } from "../components/PaginationControls";
+import { DirectoryCatalogueCard, PaginationControls, ProgressButton } from "../components";
+import { useCatalogues, useSettings } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
-import type { SyncSummary } from "../types";
 import type { DirectoryItem } from "../utils/catalogueUi";
-import { formatDateRange } from "../utils/catalogueUi";
-import { clampPercent } from "../utils/progressUi";
+import { formatDateRange, paginate } from "../utils/catalogueUi";
 
-type CataloguesScreenProps = {
-  downloadingCatalogueId: string | null;
-  downloadProgressPercent: number | null;
-  isBulkDownloading: boolean;
-  bulkDownloadProgressPercent: number | null;
-  hideExpiredCatalogues: boolean;
-  siteCount: number;
-  cachedCount: number;
-  directoryItems: DirectoryItem[];
-  pagedDirectoryItems: DirectoryItem[];
-  cataloguePage: number;
-  syncSummary: SyncSummary | null;
-  onRefreshList: () => void;
-  onPullAll: () => void;
-  onForceRefresh: () => void;
-  onPullItem: (item: DirectoryItem) => void;
-  onOpenDump: (catalogueId: string) => void;
-  onCataloguePageChange: (nextPage: number) => void;
-};
+const CATALOGUE_PAGE_SIZE = 8;
 
-export function CataloguesScreen({
-  downloadingCatalogueId,
-  downloadProgressPercent,
-  isBulkDownloading,
-  bulkDownloadProgressPercent,
-  hideExpiredCatalogues,
-  siteCount,
-  cachedCount,
-  directoryItems,
-  pagedDirectoryItems,
-  cataloguePage,
-  syncSummary,
-  onRefreshList,
-  onPullAll,
-  onForceRefresh,
-  onPullItem,
-  onOpenDump,
-  onCataloguePageChange,
-}: CataloguesScreenProps): React.ReactElement {
+export function CataloguesScreen(): React.ReactElement {
+  const {
+    directoryItems,
+    siteTargets,
+    visibleCachedCatalogues,
+    downloadingCatalogueId,
+    downloadProgressPercent,
+    isBulkDownloading,
+    bulkDownloadProgressPercent,
+    syncSummary,
+    refreshCatalogueData,
+    runPull,
+    pullSingleCatalogue,
+    openDump,
+  } = useCatalogues();
+  const { hideExpiredCatalogues } = useSettings();
+
+  const [cataloguePage, setCataloguePage] = React.useState(0);
+
+  const pagedDirectoryItems = React.useMemo(() => {
+    return paginate(directoryItems, cataloguePage, CATALOGUE_PAGE_SIZE);
+  }, [cataloguePage, directoryItems]);
+
+  React.useEffect(() => {
+    setCataloguePage(0);
+  }, [directoryItems.length, hideExpiredCatalogues]);
+
   const downloadsDisabled = Boolean(downloadingCatalogueId) || isBulkDownloading;
   const pullAllLabel = "Download all";
-  const bulkProgressPercent = clampPercent(bulkDownloadProgressPercent);
+  const bulkProgress = isBulkDownloading ? bulkDownloadProgressPercent : null;
 
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
       <View style={styles.heroCard}>
         <View style={sharedStyles.buttonRow}>
-          <Pressable onPress={onRefreshList} style={styles.heroSecondaryButton}>
+          <Pressable
+            onPress={() => {
+              void refreshCatalogueData();
+            }}
+            style={styles.heroSecondaryButton}
+          >
             <Text style={styles.heroSecondaryButtonText}>Refresh list</Text>
           </Pressable>
-          <Pressable
+          <ProgressButton
             disabled={downloadsDisabled}
-            onPress={onPullAll}
-            style={[styles.heroPrimaryButton, downloadsDisabled && styles.heroPrimaryButtonDisabled]}
-          >
-            <Text style={[styles.heroPrimaryButtonText, styles.heroPrimaryButtonGhostLabel]}>
-              {pullAllLabel}
-            </Text>
-
-            {isBulkDownloading ? (
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.heroPrimaryButtonFillClip,
-                  { width: `${bulkProgressPercent}%` },
-                ]}
-              >
-                <LinearGradient
-                  colors={[BRAND.redDark, BRAND.red]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.heroPrimaryButtonFillGradient}
-                />
-              </View>
-            ) : null}
-
-            <View pointerEvents="none" style={styles.heroPrimaryButtonOverlay}>
-              <Text style={styles.heroPrimaryButtonText}>
-                {isBulkDownloading ? `${Math.round(bulkProgressPercent)}%` : pullAllLabel}
-              </Text>
-            </View>
-          </Pressable>
+            label={pullAllLabel}
+            onPress={() => {
+              void runPull(false);
+            }}
+            progress={bulkProgress}
+            variant="primary"
+          />
         </View>
       </View>
 
@@ -101,11 +70,11 @@ export function CataloguesScreen({
           <Text style={styles.statLabel}>Visible catalogues</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{siteCount}</Text>
+          <Text style={styles.statValue}>{siteTargets.length}</Text>
           <Text style={styles.statLabel}>Live on site</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{cachedCount}</Text>
+          <Text style={styles.statValue}>{visibleCachedCatalogues.length}</Text>
           <Text style={styles.statLabel}>Cached dumps</Text>
         </View>
       </View>
@@ -120,8 +89,12 @@ export function CataloguesScreen({
             }
             isDownloading={item.catalogueId === downloadingCatalogueId}
             item={item}
-            onOpenDump={onOpenDump}
-            onPull={onPullItem}
+            onOpenDump={(catalogueId: string) => {
+              void openDump(catalogueId);
+            }}
+            onPull={(target: DirectoryItem) => {
+              void pullSingleCatalogue(target);
+            }}
           />
         ))
       ) : (
@@ -133,9 +106,9 @@ export function CataloguesScreen({
       )}
 
       <PaginationControls
-        onPageChange={onCataloguePageChange}
+        onPageChange={setCataloguePage}
         page={cataloguePage}
-        pageSize={8}
+        pageSize={CATALOGUE_PAGE_SIZE}
         totalItems={directoryItems.length}
       />
 
@@ -171,40 +144,6 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND.blue,
     borderRadius: 20,
     padding: 14,
-  },
-  heroPrimaryButton: {
-    backgroundColor: BRAND.red,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-  heroPrimaryButtonGhostLabel: {
-    opacity: 0,
-  },
-  heroPrimaryButtonFillClip: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    overflow: "hidden",
-  },
-  heroPrimaryButtonFillGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  heroPrimaryButtonOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  heroPrimaryButtonDisabled: {
-    opacity: 0.65,
-  },
-  heroPrimaryButtonText: {
-    color: BRAND.white,
-    fontWeight: "800",
   },
   heroSecondaryButton: {
     backgroundColor: BRAND.white,

@@ -11,6 +11,8 @@ import {
   getCatalogueTimingStatus,
 } from "../utils/catalogueUi";
 
+// This screen is not currently wired into the app's navigation.
+
 type EmailScreenProps = {
   pagedEmailCatalogues: ManifestEntry[];
   visibleCachedCatalogues: ManifestEntry[];

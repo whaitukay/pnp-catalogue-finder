@@ -16,45 +16,55 @@ import {
 } from "react-native";
 import type { LayoutAnimationConfig } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BarcodeImage } from "../components/BarcodeImage";
-import { PaginationControls } from "../components/PaginationControls";
-import { StatusBadge } from "../components/StatusBadge";
+
+import { DumpRowCard, PaginationControls, StatusBadge } from "../components";
+import { useCatalogues } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
-import type { CatalogueDump, ProductRow } from "../types";
+import type { ProductRow } from "../types";
 import {
-  normalizeBarcodeForRendering,
-} from "../utils/barcodes";
-import { formatDateStamp, getCatalogueTimingStatus } from "../utils/catalogueUi";
+  formatDateStamp,
+  getCatalogueTimingStatus,
+  paginate,
+  rowMatchesSearch,
+} from "../utils/catalogueUi";
 
 if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
 type DumpsScreenProps = {
-  selectedDump: CatalogueDump;
-  dumpSearch: string;
-  filteredDumpRows: ProductRow[];
-  pagedDumpRows: ProductRow[];
-  dumpRowsPage: number;
-  isGeneratingCsv: boolean;
   onBackToCatalogues: () => void;
-  onEmailDump: (catalogueId: string) => void;
-  onDumpSearchChange: (value: string) => void;
-  onDumpRowsPageChange: (nextPage: number) => void;
 };
 
 export function DumpsScreen({
-  selectedDump,
-  dumpSearch,
-  filteredDumpRows,
-  pagedDumpRows,
-  dumpRowsPage,
-  isGeneratingCsv,
   onBackToCatalogues,
-  onEmailDump,
-  onDumpSearchChange,
-  onDumpRowsPageChange,
 }: DumpsScreenProps): React.ReactElement {
+  const { selectedDump, setSelectedDump, sendEmail, isGeneratingCsv } = useCatalogues();
+  const [dumpSearch, setDumpSearch] = React.useState("");
+  const [dumpRowsPage, setDumpRowsPage] = React.useState(0);
+
+  const filteredDumpRows = React.useMemo<ProductRow[]>(() => {
+    if (!selectedDump) {
+      return [];
+    }
+    return selectedDump.rows.filter((row) => rowMatchesSearch(row, dumpSearch));
+  }, [dumpSearch, selectedDump]);
+
+  const pagedDumpRows = React.useMemo(() => {
+    return paginate(filteredDumpRows, dumpRowsPage, 24);
+  }, [dumpRowsPage, filteredDumpRows]);
+
+  React.useEffect(() => {
+    if (selectedDump) {
+      setDumpSearch("");
+      setDumpRowsPage(0);
+    }
+  }, [selectedDump?.catalogueId]);
+
+  if (!selectedDump) {
+    return <View />;
+  }
+
   const selectedDumpTiming = getCatalogueTimingStatus(
     selectedDump.catalogueStartDate,
     selectedDump.catalogueEndDate,
@@ -78,9 +88,10 @@ export function DumpsScreen({
   const handleDumpSearchChange = React.useCallback(
     (value: string) => {
       searchQueryRef.current = value;
-      onDumpSearchChange(value);
+      setDumpRowsPage(0);
+      setDumpSearch(value);
     },
-    [onDumpSearchChange],
+    [],
   );
 
   React.useEffect(() => {
@@ -161,12 +172,20 @@ export function DumpsScreen({
         {!isSearching ? (
           <>
             <View style={sharedStyles.buttonRow}>
-              <Pressable onPress={onBackToCatalogues} style={sharedStyles.secondaryButton}>
+              <Pressable
+                onPress={() => {
+                  setSelectedDump(null);
+                  onBackToCatalogues();
+                }}
+                style={sharedStyles.secondaryButton}
+              >
                 <Text style={sharedStyles.secondaryButtonText}>Back to catalogues</Text>
               </Pressable>
               <Pressable
                 disabled={isGeneratingCsv}
-                onPress={() => onEmailDump(selectedDump.catalogueId)}
+                onPress={() => {
+                  void sendEmail(selectedDump.catalogueId);
+                }}
                 style={[
                   sharedStyles.primaryButton,
                   isGeneratingCsv ? styles.emailButtonDisabled : null,
@@ -272,7 +291,7 @@ export function DumpsScreen({
         )}
 
         <PaginationControls
-          onPageChange={onDumpRowsPageChange}
+          onPageChange={setDumpRowsPage}
           page={dumpRowsPage}
           pageSize={24}
           totalItems={filteredDumpRows.length}
@@ -304,22 +323,6 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontWeight: "800",
   },
-  dumpRowCardRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  dumpRowCardDetails: {
-    flex: 1,
-    minWidth: 0,
-    gap: 6,
-  },
-  dumpRowCardBarcode: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 72,
-    alignItems: "flex-end",
-    justifyContent: "flex-end",
-  },
 });
 
 const SEARCH_LAYOUT_ANIMATION = {
@@ -336,53 +339,4 @@ const SEARCH_LAYOUT_ANIMATION = {
     property: LayoutAnimation.Properties.opacity,
   },
 } satisfies LayoutAnimationConfig;
-
-function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
-  const rawBarcode = typeof row.barcode === "string" ? row.barcode : "";
-  const hasBarcodeDigits = /\d/.test(rawBarcode);
-  const normalizedBarcode = React.useMemo(
-    () => normalizeBarcodeForRendering(rawBarcode),
-    [rawBarcode],
-  );
-  const [barcodeError, setBarcodeError] = React.useState(false);
-  const barcodeToShow = barcodeError ? null : normalizedBarcode;
-  const handleBarcodeError = React.useCallback(() => {
-    setBarcodeError(true);
-  }, []);
-
-  React.useEffect(() => {
-    setBarcodeError(false);
-  }, [rawBarcode, normalizedBarcode?.format, normalizedBarcode?.value]);
-
-  return (
-    <View style={sharedStyles.card}>
-      <Text numberOfLines={2} style={sharedStyles.cardTitle}>
-        {row.name || row.productCode}
-      </Text>
-      <View style={styles.dumpRowCardRow}>
-        <View style={styles.dumpRowCardDetails}>
-          {row.baseProduct ? (
-            <Text style={sharedStyles.metaText}>Base product: {+row.baseProduct}</Text>
-          ) : null}
-          {row.price ? <Text style={sharedStyles.metaText}>Price: {row.price}</Text> : null}
-          {row.promotion ? <Text style={sharedStyles.bodyText}>{row.promotion}</Text> : null}
-          {hasBarcodeDigits && (!normalizedBarcode || barcodeError) ? (
-            <Text style={sharedStyles.metaText}>Barcode not scannable</Text>
-          ) : null}
-          {!hasBarcodeDigits ? <Text style={sharedStyles.metaText}>Barcode missing</Text> : null}
-          {row.error ? <Text style={sharedStyles.errorSmall}>{row.error}</Text> : null}
-        </View>
-        {barcodeToShow ? (
-          <View style={styles.dumpRowCardBarcode}>
-            <BarcodeImage
-              format={barcodeToShow.format}
-              onError={handleBarcodeError}
-              value={barcodeToShow.value}
-            />
-          </View>
-        ) : null}
-      </View>
-    </View>
-  );
-}
 
