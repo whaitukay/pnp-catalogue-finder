@@ -640,6 +640,10 @@ export async function saveImport(catalogue: ImportedCatalogue): Promise<Imported
   await ensureStorage();
 
   const normalizedCatalogue = normalizeImportedCatalogueValue(catalogue);
+  if (!normalizedCatalogue.id) {
+    throw new Error("Imported catalogue id is required.");
+  }
+
   const manifest = await loadImportsManifest();
   const { items: _items, ...summary } = normalizedCatalogue;
 
