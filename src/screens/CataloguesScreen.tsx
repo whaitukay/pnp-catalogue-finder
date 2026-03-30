@@ -56,11 +56,6 @@ export function CataloguesScreen({
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
       <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>Live catalogue directory</Text>
-        <Text style={styles.heroText}>
-          Browse live Pick n Pay catalogue groups alongside cached dumps, newest live entries at the top, then pull one or pull all.
-        </Text>
-
         <View style={sharedStyles.buttonRow}>
           <Pressable onPress={onRefreshList} style={styles.heroSecondaryButton}>
             <Text style={styles.heroSecondaryButtonText}>Refresh list</Text>
@@ -174,19 +169,8 @@ export function CataloguesScreen({
 const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: BRAND.blue,
-    borderRadius: 24,
-    padding: 18,
-    gap: 10,
-  },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: BRAND.white,
-  },
-  heroText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: "#dfeeff",
+    borderRadius: 20,
+    padding: 14,
   },
   heroPrimaryButton: {
     backgroundColor: BRAND.red,
