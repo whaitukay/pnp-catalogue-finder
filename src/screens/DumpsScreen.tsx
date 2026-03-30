@@ -124,6 +124,9 @@ export function DumpsScreen({
     searchInputRef.current?.blur();
   }, [animateLayout, onDumpSearchChange]);
 
+  const hasQuery = dumpSearch.trim().length > 0;
+  const isSearching = isSearchFocused || hasQuery;
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -137,7 +140,7 @@ export function DumpsScreen({
         keyboardShouldPersistTaps="handled"
         style={sharedStyles.flex}
       >
-        {!isSearchFocused ? (
+        {!isSearching ? (
           <>
             <View style={sharedStyles.buttonRow}>
               <Pressable onPress={onBackToCatalogues} style={sharedStyles.secondaryButton}>
@@ -207,7 +210,7 @@ export function DumpsScreen({
               <Pressable hitSlop={10} onPress={handleSearchDone}>
                 <Text style={sharedStyles.linkText}>Done</Text>
               </Pressable>
-            ) : dumpSearch.trim().length > 0 ? (
+            ) : hasQuery ? (
               <Pressable hitSlop={10} onPress={handleSearchClear}>
                 <Text style={sharedStyles.linkText}>Clear</Text>
               </Pressable>
