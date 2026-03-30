@@ -122,9 +122,9 @@ describe("importParser", () => {
     });
   });
 
-  it("rejects scientific notation values", async () => {
+  it("rejects scientific notation in barcode cells", async () => {
     fsMock.readAsStringAsync.mockResolvedValueOnce(
-      ["baseProduct,barcode", "6.001E+12,6001000000001"].join("\n"),
+      ["baseProduct,barcode", "000000000000000123,6.001E+12"].join("\n"),
     );
 
     await expect(parseImportFile("file:///mock.csv", "Book1.csv")).rejects.toThrow(
