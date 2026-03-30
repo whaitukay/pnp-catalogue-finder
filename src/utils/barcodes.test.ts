@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { normalizeBarcodeForRendering } from "./barcodes";
 
 describe("barcodes", () => {
-  it("renders 2* 13-digit scale codes as Code 128 without mutation", () => {
+  it("renders 2* 13-digit scale codes as EAN-13 with a corrected check digit", () => {
     expect(normalizeBarcodeForRendering("2009692000000")).toEqual({
-      format: "CODE128",
-      value: "2009692000000",
+      format: "EAN13",
+      value: "2009692000006",
     });
   });
 
