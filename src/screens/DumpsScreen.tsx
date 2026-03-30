@@ -233,24 +233,13 @@ function BarcodeImage({
 
   React.useEffect(() => {
     const scale = Math.max(1, Math.round(PixelRatio.get()));
-    const cacheKey = `${format}:${value}:${scale}`;
-    const cachedSource = getBarcodeImageFromCache(cacheKey);
-    if (cachedSource) {
-      setSource(cachedSource);
-      return;
-    }
-
-    let cancelled = false;
-    setSource(null);
-
     const isScaleCode = format === "EAN13" && isScaleItemEan13(value);
     const rawSbs = isScaleCode ? ean13ToRawSbs(value) : null;
     const bcid = format === "EAN8" ? "ean8" : isScaleCode ? "raw" : "ean13";
     if (isScaleCode && !rawSbs) {
+      setSource(null);
       onError();
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
 
     const options: Parameters<typeof bwipjs.toDataURL>[0] = {
@@ -261,6 +250,16 @@ function BarcodeImage({
       includetext: true,
       ...(isScaleCode ? { alttext: value } : {}),
     };
+
+    const cacheKey = `${bcid}:${options.text}:${scale}`;
+    const cachedSource = getBarcodeImageFromCache(cacheKey);
+    if (cachedSource) {
+      setSource(cachedSource);
+      return;
+    }
+
+    let cancelled = false;
+    setSource(null);
 
     bwipjs
       .toDataURL(options)

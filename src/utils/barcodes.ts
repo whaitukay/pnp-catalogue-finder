@@ -13,8 +13,9 @@ export function isScaleItemEan13(value: string): boolean {
 * Intended for rendering only: it may strip formatting characters and append check digits for
 * some formats.
 *
-* Note: 13-digit scale codes (restricted distribution, `2x` prefix) may bypass check digit
-* validation so we can render the original digits even when the source checksum is incorrect.
+* Note: 13-digit scale codes (restricted distribution, `2x` prefix ending in `000000`) may bypass
+* check digit validation so we can render the original digits even when the source checksum is
+* incorrect.
 */
 export function normalizeBarcodeForRendering(value: string): RenderableBarcode | null {
   const raw = value.trim();
@@ -73,6 +74,12 @@ export function normalizeBarcodeForRendering(value: string): RenderableBarcode |
   return null;
 }
 
+/**
+* Encodes a 13-digit EAN-13 value into a BWIPP `raw` "sbs" string (run-length encoded bars/spaces).
+*
+* This does not validate the EAN-13 check digit; callers are expected to decide when to permit
+* non-standard checksums (e.g. for scale-item barcodes).
+*/
 export function ean13ToRawSbs(value: string): string | null {
   if (value.length !== 13 || /\D/.test(value)) {
     return null;
