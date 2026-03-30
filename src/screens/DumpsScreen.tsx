@@ -173,7 +173,8 @@ const styles = StyleSheet.create({
 
 function DumpRowCard({ row }: { row: ProductRow }): React.ReactElement {
   const rawBarcode = typeof row.barcode === "string" ? row.barcode : "";
-  const hasBarcodeDigits = /\d/.test(rawBarcode);
+  const barcodeDigits = rawBarcode.replace(/\D/g, "");
+  const hasBarcodeDigits = barcodeDigits.length > 0;
   const normalizedBarcode = React.useMemo(
     () => normalizeBarcodeForRendering(rawBarcode),
     [rawBarcode],
