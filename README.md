@@ -17,6 +17,7 @@ The app discovers catalogue categories on `pnp.co.za`, pulls the products for ea
 - Open previously cached dumps and review/search extracted items.
 - Scan a single catalogue from a `Shop now` / `Buy now` URL.
 - Share/email a catalogue CSV export.
+- Import custom CSV/XLSX collections (base product + optional barcodes) and render scannable barcodes.
 
 ## Quick start
 
@@ -64,7 +65,7 @@ All scripts live in `package.json`:
 ## Project layout
 
 - `App.tsx`: root state management + tabbed UI wiring
-- `src/screens/*`: tab screens (`Catalogues`, `Dumps`, `Settings`)
+- `src/screens/*`: tab screens (`Catalogues`, `Dumps`, `Imports`, `Settings`)
 - `src/services/pnp.ts`: discovery + PnP API scraping/pulling
 - `src/services/catalogueStore.ts`: on-device persistence (settings, caches, dumps, CSV exports)
 - `src/types.ts`: shared domain types
@@ -79,6 +80,8 @@ The directory prefix is currently `catalogue-helper/` (legacy name kept for comp
 - Root: `catalogue-helper/`
 - Dumps: `catalogue-helper/dumps/`
 - CSV exports: `catalogue-helper/exports/`
+- Imports: `catalogue-helper/imports/`
+- Imports manifest: `catalogue-helper/cache/imports-manifest.json`
 
 ## CI/CD (high-level)
 

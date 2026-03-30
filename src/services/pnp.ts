@@ -11,7 +11,6 @@ import {
 } from "./catalogueStore";
 import { coalesceCatalogueImageUrl } from "../utils/catalogueImageUrl";
 import {
-  formatDateYyyyMmDd,
   parseDateTimestamp,
 } from "../utils/dateUtils";
 import type {
@@ -19,7 +18,6 @@ import type {
   CatalogueTarget,
   ProductDetail,
   ProductRow,
-  PromotionWindow,
   SyncItemResult,
   SyncSummary,
 } from "../types";
@@ -31,8 +29,6 @@ const DETAIL_ENDPOINT = `${BASE_URL}/pnphybris/v2/pnp-spa/products`;
 const CMS_PAGE_ENDPOINT = `${BASE_URL}/pnphybris/v2/pnp-spa/cms/pages`;
 const SEARCH_FIELDS =
   "products(code,name,price(FULL),potentialPromotions(FULL),url),pagination(DEFAULT),currentQuery";
-const PROBE_SEARCH_FIELDS =
-  "products(potentialPromotions(FULL)),pagination(DEFAULT)";
 const DETAIL_FIELDS =
   "code,baseProduct,name,url,price(FULL),productDetailsDisplayInfoResponse,classifications";
 const DEFAULT_HEADERS = {
@@ -41,47 +37,22 @@ const DEFAULT_HEADERS = {
   "user-agent": "catalogue-helper-mobile/0.1",
 };
 
-const START_DATE_KEYS = [
-  "start",
-  "startdate",
-  "validfrom",
-  "fromdate",
-  "from",
-  "effectivestart",
-  "promotionstart",
-  "displayfrom",
-];
-
-const END_DATE_KEYS = [
-  "end",
-  "enddate",
-  "validto",
-  "todate",
-  "to",
-  "effectiveend",
-  "promotionend",
-  "expiry",
-  "expiration",
-  "expire",
-  "displayto",
-];
-
 type SearchProduct = {
   code: string;
   name: string;
   price: string;
   url: string;
   promotion: string;
-  promotionStartDate: number | null;
-  promotionEndDate: number | null;
   promotionRanges: string;
-  promotions: PromotionWindow[];
 };
 
 type ExportOutcome = {
   result: SyncItemResult;
   dump: CatalogueDump | null;
 };
+
+type FractionalProgress = (progress: number) => void;
+type CountProgress = (current: number, total: number) => void;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -581,91 +552,6 @@ function extractCatalogueTargetsFromCms(payload: any): CatalogueTarget[] {
   });
 }
 
-function normalizeDateCandidate(
-  value: unknown,
-  options?: { endOfDay?: boolean },
-): number | null {
-  return parseDateTimestamp(value, options);
-}
-
-function keyPathMatches(path: string[], patterns: string[]): boolean {
-  const joined = path.join(".");
-  return patterns.some((pattern) => joined.includes(pattern));
-}
-
-function collectPromotionDates(
-  value: unknown,
-  collector: { starts: Set<number>; ends: Set<number> },
-  path: string[] = [],
-  depth = 0,
-  seen = new Set<object>(),
-): void {
-  if (value == null || depth > 6) {
-    return;
-  }
-
-  if (typeof value !== "object") {
-    return;
-  }
-
-  if (seen.has(value)) {
-    return;
-  }
-  seen.add(value);
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectPromotionDates(item, collector, path, depth + 1, seen);
-    }
-    return;
-  }
-
-  for (const [rawKey, entry] of Object.entries(value)) {
-    const key = rawKey.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const nextPath = [...path, key];
-
-    if (
-      entry != null &&
-      (typeof entry === "string" || typeof entry === "number") &&
-      keyPathMatches(nextPath, START_DATE_KEYS)
-    ) {
-      const normalized = normalizeDateCandidate(entry);
-      if (normalized != null) {
-        collector.starts.add(normalized);
-      }
-    }
-
-    if (
-      entry != null &&
-      (typeof entry === "string" || typeof entry === "number") &&
-      keyPathMatches(nextPath, END_DATE_KEYS)
-    ) {
-      const normalized = normalizeDateCandidate(entry, { endOfDay: true });
-      if (normalized != null) {
-        collector.ends.add(normalized);
-      }
-    }
-
-    collectPromotionDates(entry, collector, nextPath, depth + 1, seen);
-  }
-}
-
-function pickEarliest(values: Iterable<number>): number | null {
-  const dated = Array.from(new Set(values))
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
-    .sort((left, right) => left - right);
-
-  return dated[0] ?? null;
-}
-
-function pickLatest(values: Iterable<number>): number | null {
-  const dated = Array.from(new Set(values))
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
-    .sort((left, right) => right - left);
-
-  return dated[0] ?? null;
-}
-
 function extractPromotionTextValue(promotion: any): string {
   return String(
     promotion?.promotionTextMessage ||
@@ -676,99 +562,12 @@ function extractPromotionTextValue(promotion: any): string {
   ).trim();
 }
 
-function buildPromotionRangeText(promotion: PromotionWindow): string {
-  const start = formatDateYyyyMmDd(promotion.startDate);
-  const end = formatDateYyyyMmDd(promotion.endDate);
-  const text = promotion.text ?? "";
-
-  if (start && end && text) {
-    return `${start} -> ${end} [${text}]`;
-  }
-  if (start && end) {
-    return `${start} -> ${end}`;
-  }
-  if (start && text) {
-    return `Starts ${start} [${text}]`;
-  }
-  if (end && text) {
-    return `Ends ${end} [${text}]`;
-  }
-  if (text) {
-    return text;
-  }
-  if (start) {
-    return `Starts ${start}`;
-  }
-  if (end) {
-    return `Ends ${end}`;
-  }
-  return "";
-}
-
-function buildPromotionRangesText(promotions: PromotionWindow[]): string {
-  return Array.from(
-    new Set(
-      promotions.map((promotion) => buildPromotionRangeText(promotion)).filter(Boolean),
-    ),
-  ).join(" | ");
-}
-
-function extractPromotions(product: any): PromotionWindow[] {
+function extractPromotionText(product: any): string {
   const rawPromotions = Array.isArray(product?.potentialPromotions)
     ? product.potentialPromotions
     : [];
-  const collected = new Map<string, PromotionWindow>();
-
-  rawPromotions.forEach((promotion: any, index: number) => {
-    const collector = {
-      starts: new Set<number>(),
-      ends: new Set<number>(),
-    };
-    collectPromotionDates(promotion, collector);
-
-    const text = extractPromotionTextValue(promotion);
-    const normalized: PromotionWindow = {
-      text: text || ((collector.starts.size > 0 || collector.ends.size > 0) ? `Promotion ${index + 1}` : ""),
-      startDate: pickEarliest(collector.starts),
-      endDate: pickLatest(collector.ends),
-    };
-
-    if (!normalized.text && !normalized.startDate && !normalized.endDate) {
-      return;
-    }
-
-    const key = [
-      normalized.text,
-      String(normalized.startDate ?? ""),
-      String(normalized.endDate ?? ""),
-    ].join("|");
-
-    if (!collected.has(key)) {
-      collected.set(key, normalized);
-    }
-  });
-
-  return Array.from(collected.values());
-}
-
-function extractPromotionText(promotions: PromotionWindow[]): string {
-  return Array.from(
-    new Set(promotions.map((promotion) => promotion.text).filter(Boolean)),
-  ).join(" | ");
-}
-
-function derivePromotionWindow(promotions: PromotionWindow[]): {
-  promotionStartDate: number | null;
-  promotionEndDate: number | null;
-} {
-  return {
-    promotionStartDate: pickEarliest(
-      promotions.map((promotion) => promotion.startDate).filter((value): value is number => value != null),
-    ),
-    promotionEndDate: pickLatest(
-      promotions.map((promotion) => promotion.endDate).filter((value): value is number => value != null),
-    ),
-  };
+  const texts = rawPromotions.map((promotion: any) => extractPromotionTextValue(promotion)).filter(Boolean);
+  return Array.from(new Set(texts)).join(" | ");
 }
 
 function isExpired(endTimestamp: number | null): boolean {
@@ -778,6 +577,7 @@ function isExpired(endTimestamp: number | null): boolean {
 async function fetchProducts(
   target: CatalogueTarget,
   storeCode: string,
+  onProgress?: CountProgress,
 ): Promise<SearchProduct[]> {
   const firstPage = await requestJson(buildSearchUrl(target, 0, storeCode), {
     method: "POST",
@@ -785,6 +585,7 @@ async function fetchProducts(
   });
 
   const totalPages = Number(firstPage?.pagination?.totalPages ?? 1);
+  onProgress?.(1, totalPages);
   const products = [
     ...(Array.isArray(firstPage?.products) ? firstPage.products : []),
   ];
@@ -797,6 +598,7 @@ async function fetchProducts(
     if (Array.isArray(payload?.products)) {
       products.push(...payload.products);
     }
+    onProgress?.(page + 1, totalPages);
   }
 
   const deduped = new Map<string, SearchProduct>();
@@ -806,8 +608,7 @@ async function fetchProducts(
       continue;
     }
 
-    const promotions = extractPromotions(product);
-    const { promotionStartDate, promotionEndDate } = derivePromotionWindow(promotions);
+    const promotion = extractPromotionText(product);
 
     deduped.set(code, {
       code,
@@ -816,11 +617,8 @@ async function fetchProducts(
         String(product?.price?.formattedValue ?? "").trim() ||
         String(product?.price?.value ?? "").trim(),
       url: absolutizeUrl(String(product?.url ?? "")),
-      promotion: extractPromotionText(promotions),
-      promotionStartDate,
-      promotionEndDate,
-      promotionRanges: buildPromotionRangesText(promotions),
-      promotions,
+      promotion,
+      promotionRanges: promotion,
     });
   }
 
@@ -917,6 +715,7 @@ async function fetchProductDetails(
   products: SearchProduct[],
   storeCode: string,
   forceRefresh: boolean,
+  onProgress?: CountProgress,
 ): Promise<Record<string, ProductDetail>> {
   const cache = await loadProductCache();
   const details: Record<string, ProductDetail> = {};
@@ -932,6 +731,10 @@ async function fetchProductDetails(
     }
   }
 
+  const totalBatches = Math.max(1, Math.ceil(pendingCodes.length / 8));
+  onProgress?.(0, totalBatches);
+
+  let completedBatches = 0;
   for (let index = 0; index < pendingCodes.length; index += 8) {
     const batch = pendingCodes.slice(index, index + 8);
     const batchResults = await Promise.all(
@@ -958,6 +761,13 @@ async function fetchProductDetails(
     for (const detail of batchResults) {
       details[detail.code] = detail;
     }
+
+    completedBatches += 1;
+    onProgress?.(completedBatches, totalBatches);
+  }
+
+  if (pendingCodes.length === 0) {
+    onProgress?.(totalBatches, totalBatches);
   }
 
   await saveProductCache(cache);
@@ -980,10 +790,7 @@ function buildRows(
       barcode: detail?.barcode || "",
       price: product.price || detail?.price || "",
       promotion: product.promotion,
-      promotionStartDate: product.promotionStartDate,
-      promotionEndDate: product.promotionEndDate,
       promotionRanges: product.promotionRanges,
-      promotions: product.promotions,
       productUrl: product.url || detail?.url || "",
       barcodeFound: Boolean(detail?.barcode),
       error: detail?.error || "",
@@ -991,31 +798,26 @@ function buildRows(
   });
 }
 
-function deriveDumpWindow(rows: ProductRow[]): {
-  promotionStartDate: number | null;
-  promotionEndDate: number | null;
-} {
-  return {
-    promotionStartDate: pickEarliest(
-      rows.map((row) => row.promotionStartDate).filter((value): value is number => value != null),
-    ),
-    promotionEndDate: pickLatest(
-      rows.map((row) => row.promotionEndDate).filter((value): value is number => value != null),
-    ),
-  };
-}
-
 async function exportTarget(
   target: CatalogueTarget,
   storeCode: string,
   forceRefresh: boolean,
   includeDump: boolean,
+  onProgress?: FractionalProgress,
 ): Promise<ExportOutcome> {
   const manifest = await loadManifestCache();
   const key = catalogueIdForTarget(storeCode, target);
   const existingEntry = manifest.catalogues[key];
 
-  const products = await fetchProducts(target, storeCode);
+  onProgress?.(0);
+
+  const productsPhaseWeight = 0.2;
+  const detailsPhaseWeight = 0.75;
+
+  const products = await fetchProducts(target, storeCode, (current, total) => {
+    const ratio = total > 0 ? current / total : 1;
+    onProgress?.(productsPhaseWeight * ratio);
+  });
   const productCodes = products.map((product) => product.code);
 
   if (
@@ -1023,9 +825,9 @@ async function exportTarget(
     existingEntry &&
     existingEntry.query === target.query &&
     arrayEquals(existingEntry.productCodes, productCodes) &&
-    (await fileExists(existingEntry.csvUri)) &&
     (await fileExists(existingEntry.dumpUri))
   ) {
+    onProgress?.(1);
     return {
       result: {
         catalogueId: key,
@@ -1038,20 +840,25 @@ async function exportTarget(
         discoveredFrom: existingEntry.discoveredFrom,
         catalogueStartDate: existingEntry.catalogueStartDate,
         catalogueEndDate: existingEntry.catalogueEndDate,
-        promotionStartDate: existingEntry.promotionStartDate,
-        promotionEndDate: existingEntry.promotionEndDate,
         expired: existingEntry.expired,
       },
       dump: includeDump ? await loadDumpByUri(existingEntry.dumpUri) : null,
     };
   }
 
-  const details = await fetchProductDetails(products, storeCode, forceRefresh);
+  const details = await fetchProductDetails(
+    products,
+    storeCode,
+    forceRefresh,
+    (current, total) => {
+      const ratio = total > 0 ? current / total : 1;
+      onProgress?.(productsPhaseWeight + detailsPhaseWeight * ratio);
+    },
+  );
   const rows = buildRows(target, products, details);
   const barcodeCount = rows.filter((row) => row.barcodeFound).length;
-  const { promotionStartDate, promotionEndDate } = deriveDumpWindow(rows);
-  const dumpStartDate = promotionStartDate ?? target.catalogueStartDate ?? null;
-  const dumpEndDate = promotionEndDate ?? target.catalogueEndDate ?? null;
+  const dumpStartDate = target.catalogueStartDate ?? null;
+  const dumpEndDate = target.catalogueEndDate ?? null;
   const effectiveEndDate = dumpEndDate;
 
   const baseDump: CatalogueDump = {
@@ -1068,7 +875,6 @@ async function exportTarget(
     catalogueStartDate: dumpStartDate,
     catalogueEndDate: dumpEndDate,
     expired: isExpired(effectiveEndDate),
-    csvUri: "",
     rows,
   };
 
@@ -1089,15 +895,14 @@ async function exportTarget(
       target.catalogueImageUrl,
       existingEntry?.catalogueImageUrl,
     ),
-    catalogueStartDate: target.catalogueStartDate ?? null,
-    catalogueEndDate: target.catalogueEndDate ?? null,
-    promotionStartDate: persisted.dump.catalogueStartDate,
-    promotionEndDate: persisted.dump.catalogueEndDate,
+    catalogueStartDate: persisted.dump.catalogueStartDate,
+    catalogueEndDate: persisted.dump.catalogueEndDate,
     expired: isExpired(effectiveEndDate),
-    csvUri: persisted.csvUri,
+    csvUri: persisted.csvUri || existingEntry?.csvUri || "",
     dumpUri: persisted.dumpUri,
   };
   await saveManifestCache(manifest);
+  onProgress?.(1);
 
   return {
     result: {
@@ -1109,10 +914,8 @@ async function exportTarget(
       missingBarcodes: rows.length - barcodeCount,
       sourceUrl: target.sourceUrl || "",
       discoveredFrom: target.discoveredFrom || "",
-      catalogueStartDate: target.catalogueStartDate ?? null,
-      catalogueEndDate: target.catalogueEndDate ?? null,
-      promotionStartDate: persisted.dump.catalogueStartDate,
-      promotionEndDate: persisted.dump.catalogueEndDate,
+      catalogueStartDate: persisted.dump.catalogueStartDate,
+      catalogueEndDate: persisted.dump.catalogueEndDate,
       expired: isExpired(effectiveEndDate),
     },
     dump: includeDump ? persisted.dump : null,
@@ -1124,51 +927,13 @@ export async function discoverCatalogueTargets(): Promise<CatalogueTarget[]> {
   return extractCatalogueTargetsFromCms(payload);
 }
 
-export async function probeCatalogueWindow(
-  target: CatalogueTarget,
-  storeCode: string,
-): Promise<{ promotionStartDate: number | null; promotionEndDate: number | null }> {
-  const payload = await requestJson(
-    buildSearchUrl(target, 0, storeCode, {
-      fields: PROBE_SEARCH_FIELDS,
-      pageSize: "24",
-    }),
-    {
-      method: "POST",
-      body: "{}",
-    },
-  );
-
-  const products = Array.isArray(payload?.products) ? payload.products : [];
-  const allPromotions: PromotionWindow[] = [];
-
-  for (const product of products) {
-    const promotions = extractPromotions(product);
-    if (promotions.length > 0) {
-      allPromotions.push(...promotions);
-    }
-  }
-
-  if (allPromotions.length === 0) {
-    return {
-      promotionStartDate: null,
-      promotionEndDate: null,
-    };
-  }
-
-  const { promotionStartDate, promotionEndDate } = derivePromotionWindow(allPromotions);
-  return {
-    promotionStartDate,
-    promotionEndDate,
-  };
-}
-
 export async function pullCatalogueTarget(
   target: CatalogueTarget,
   storeCode: string,
   forceRefresh = false,
+  onProgress?: FractionalProgress,
 ): Promise<{ dump: CatalogueDump; result: SyncItemResult }> {
-  const outcome = await exportTarget(target, storeCode, forceRefresh, true);
+  const outcome = await exportTarget(target, storeCode, forceRefresh, true, onProgress);
   if (!outcome.dump) {
     throw new Error("Catalogue export completed but no dump was available to open.");
   }
@@ -1192,21 +957,36 @@ export async function scanCatalogue(
   storeCode: string,
   forceRefresh = false,
   label?: string,
+  onProgress?: FractionalProgress,
 ): Promise<{ dump: CatalogueDump; result: SyncItemResult }> {
   const target = parseCatalogueTarget(source);
   const normalizedLabel = label?.trim();
   if (normalizedLabel) {
     target.label = normalizedLabel;
   }
-  return pullCatalogueTarget(target, storeCode, forceRefresh);
+  return pullCatalogueTarget(target, storeCode, forceRefresh, onProgress);
 }
 
 export async function syncAllMissingCatalogues(
   storeCode: string,
   forceRefresh = false,
+  onProgress?: CountProgress,
 ): Promise<SyncSummary> {
   const targets = await discoverCatalogueTargets();
   const results: SyncItemResult[] = [];
+
+  const totalCount = targets.length;
+  if (totalCount === 0) {
+    return {
+      results,
+      exportedCount: 0,
+      skippedCount: 0,
+      failedCount: 0,
+    };
+  }
+
+  onProgress?.(0, totalCount);
+  let completed = 0;
 
   for (const target of targets) {
     try {
@@ -1224,12 +1004,13 @@ export async function syncAllMissingCatalogues(
         missingBarcodes: 0,
         sourceUrl: target.sourceUrl || "",
         discoveredFrom: target.discoveredFrom || "",
-        promotionStartDate: null,
-        promotionEndDate: null,
         expired: false,
         message: errorMessage(error),
       });
     }
+
+    completed += 1;
+    onProgress?.(completed, totalCount);
   }
 
   return {

@@ -1,8 +1,9 @@
 import { StatusBar } from "expo-status-bar";
+import * as DocumentPicker from "expo-document-picker";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
-import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Image, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { StatusBanner } from "./src/components/StatusBanner";
@@ -10,22 +11,30 @@ import {
   DEFAULT_SETTINGS,
   defaultEmailBody,
   defaultEmailSubject,
+  ensureCsvForDump,
+  deleteImport,
   ensureStorage,
   listCachedCatalogues,
+  listImports,
   loadDump,
+  loadImport,
+  loadManifestCache,
   loadSettings,
   rebuildAllCsvExports,
+  saveDump,
+  saveImport,
   saveSettings,
 } from "./src/services/catalogueStore";
 import {
   catalogueIdForTarget,
   discoverCatalogueTargets,
-  probeCatalogueWindow,
   scanCatalogue,
   syncAllMissingCatalogues,
 } from "./src/services/pnp";
 import { CataloguesScreen } from "./src/screens/CataloguesScreen";
 import { DumpsScreen } from "./src/screens/DumpsScreen";
+import { ImportViewScreen } from "./src/screens/ImportViewScreen";
+import { ImportsScreen } from "./src/screens/ImportsScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { BRAND } from "./src/theme";
 import type {
@@ -33,9 +42,12 @@ import type {
   CatalogueDump,
   CatalogueTarget,
   ExportFieldKey,
+  ImportedCatalogue,
+  ImportedCatalogueSummary,
   ManifestEntry,
   SyncSummary,
 } from "./src/types";
+import { parseImportFile } from "./src/utils/importParser";
 import {
   arraysEqual,
   buildDirectoryItems,
@@ -45,16 +57,22 @@ import {
   rowMatchesSearch,
 } from "./src/utils/catalogueUi";
 import type { DirectoryItem } from "./src/utils/catalogueUi";
+import { importItemMatchesSearch } from "./src/utils/importsUi";
 
-type TabKey = "catalogues" | "settings";
+const pnpLogo = require("./assets/images/app-splash-icon.png");
+
+type TabKey = "catalogues" | "imports" | "settings";
 
 const TAB_ORDER: Array<{ key: TabKey; label: string }> = [
   { key: "catalogues", label: "Catalogues" },
+  { key: "imports", label: "Imports" },
   { key: "settings", label: "Settings" },
 ];
 
 const CATALOGUE_PAGE_SIZE = 8;
 const DUMP_ROWS_PAGE_SIZE = 24;
+const IMPORTS_PAGE_SIZE = 8;
+const IMPORT_ITEMS_PAGE_SIZE = 24;
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -64,7 +82,7 @@ function errorMessage(error: unknown): string {
 }
 
 /**
-* Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Settings) plus the dump detail view.
+* Root React component that manages application state, data persistence, catalogue discovery/sync, and renders the tabbed UI (Catalogues, Imports, Settings) plus the dump detail view.
 *
 * The component maintains UI navigation and data state (settings, discovered targets, cached catalogue dumps, selected dump, sync summary, pagination and search), exposes actions for refreshing/discovering catalogues, pulling/syncing catalogue data, opening cached dumps, emailing/sharing CSV exports, and saving settings, and passes derived and control props down to the screen components.
 *
@@ -90,16 +108,26 @@ export default function App(): React.ReactElement {
   const [siteTargets, setSiteTargets] = useState<CatalogueTarget[]>([]);
   const [cachedCatalogues, setCachedCatalogues] = useState<ManifestEntry[]>([]);
   const [selectedDump, setSelectedDump] = useState<CatalogueDump | null>(null);
+  const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
   const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorText, setErrorText] = useState("");
   const [busyLabel, setBusyLabel] = useState("");
+  const [downloadingCatalogueId, setDownloadingCatalogueId] = useState<string | null>(null);
+  const [downloadProgressPercent, setDownloadProgressPercent] = useState<number | null>(null);
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+  const [bulkDownloadProgressPercent, setBulkDownloadProgressPercent] = useState<number | null>(null);
   const [cataloguePage, setCataloguePage] = useState(0);
   const [dumpRowsPage, setDumpRowsPage] = useState(0);
   const [dumpSearch, setDumpSearch] = useState("");
-  const [provisionalWindows, setProvisionalWindows] = useState<
-    Record<string, { promotionStartDate: number | null; promotionEndDate: number | null }>
-  >({});
+  const [importsList, setImportsList] = useState<ImportedCatalogueSummary[]>([]);
+  const [importsPage, setImportsPage] = useState(0);
+  const [selectedImport, setSelectedImport] = useState<ImportedCatalogue | null>(null);
+  const [importSearch, setImportSearch] = useState("");
+  const [importPage, setImportPage] = useState(0);
+  const [importBusy, setImportBusy] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importStatus, setImportStatus] = useState("");
 
   const normalizedStoreCode = useMemo(() => normalizeStoreCode(storeCode), [storeCode]);
 
@@ -115,13 +143,16 @@ export default function App(): React.ReactElement {
       cachedCatalogues,
       normalizedStoreCode,
       hideExpiredCatalogues,
-      provisionalWindows,
     );
-  }, [cachedCatalogues, hideExpiredCatalogues, normalizedStoreCode, provisionalWindows, siteTargets]);
+  }, [cachedCatalogues, hideExpiredCatalogues, normalizedStoreCode, siteTargets]);
 
   const pagedDirectoryItems = useMemo(() => {
     return paginate(directoryItems, cataloguePage, CATALOGUE_PAGE_SIZE);
   }, [cataloguePage, directoryItems]);
+
+  const pagedImportsList = useMemo(() => {
+    return paginate(importsList, importsPage, IMPORTS_PAGE_SIZE);
+  }, [importsList, importsPage]);
 
   const filteredDumpRows = useMemo(() => {
     if (!selectedDump) {
@@ -133,6 +164,17 @@ export default function App(): React.ReactElement {
   const pagedDumpRows = useMemo(() => {
     return paginate(filteredDumpRows, dumpRowsPage, DUMP_ROWS_PAGE_SIZE);
   }, [dumpRowsPage, filteredDumpRows]);
+
+  const filteredImportItems = useMemo(() => {
+    if (!selectedImport) {
+      return [];
+    }
+    return selectedImport.items.filter((item) => importItemMatchesSearch(item, importSearch));
+  }, [importSearch, selectedImport]);
+
+  const pagedImportItems = useMemo(() => {
+    return paginate(filteredImportItems, importPage, IMPORT_ITEMS_PAGE_SIZE);
+  }, [filteredImportItems, importPage]);
 
   const settingsDirty = useMemo(() => {
     return (
@@ -147,32 +189,75 @@ export default function App(): React.ReactElement {
   }, [directoryItems.length, hideExpiredCatalogues]);
 
   useEffect(() => {
+    setImportsPage(0);
+  }, [importsList.length]);
+
+  useEffect(() => {
     setDumpRowsPage(0);
   }, [dumpSearch, filteredDumpRows.length, selectedDump?.catalogueId]);
 
-  async function persistSettings(
-    overrides?: Partial<AppSettings>,
-  ): Promise<AppSettings> {
-    const nextSettings: AppSettings = {
-      storeCode: normalizeStoreCode(overrides?.storeCode ?? storeCode),
-      hideExpiredCatalogues:
-        overrides?.hideExpiredCatalogues ?? hideExpiredCatalogues,
-      exportFields: normalizeExportFields(overrides?.exportFields ?? exportFields),
-    };
+  useEffect(() => {
+    setImportPage(0);
+  }, [importSearch, filteredImportItems.length, selectedImport?.id]);
 
-    await saveSettings(nextSettings);
-    setStoreCode(nextSettings.storeCode);
-    setHideExpiredCatalogues(nextSettings.hideExpiredCatalogues);
-    setExportFields(nextSettings.exportFields);
-    setSavedSettings(nextSettings);
-    return nextSettings;
-  }
+  const lastDownloadProgressRef = useRef<{ updatedAt: number; percent: number | null }>({
+    updatedAt: 0,
+    percent: null,
+  });
 
-  async function refreshCatalogueData(options?: {
+  const reportDownloadProgress = useCallback(
+    (progress: number) => {
+      const now = Date.now();
+      const { percent: lastPercent, updatedAt } = lastDownloadProgressRef.current;
+
+      if (!Number.isFinite(progress)) {
+        return;
+      }
+
+      const normalizedProgress = Math.min(1, Math.max(0, progress));
+      const nextPercent = Math.round(normalizedProgress * 100);
+      const progressDelta = lastPercent == null ? Infinity : Math.abs(nextPercent - lastPercent);
+
+      const shouldUpdate =
+        nextPercent >= 100 ||
+        lastPercent == null ||
+        now - updatedAt >= 100 ||
+        progressDelta >= 5;
+
+      if (!shouldUpdate) {
+        return;
+      }
+
+      lastDownloadProgressRef.current = { updatedAt: now, percent: nextPercent };
+      setDownloadProgressPercent(nextPercent);
+    },
+    [setDownloadProgressPercent],
+  );
+
+  const persistSettings = useCallback(
+    async (overrides?: Partial<AppSettings>): Promise<AppSettings> => {
+      const nextSettings: AppSettings = {
+        storeCode: normalizeStoreCode(overrides?.storeCode ?? storeCode),
+        hideExpiredCatalogues:
+          overrides?.hideExpiredCatalogues ?? hideExpiredCatalogues,
+        exportFields: normalizeExportFields(overrides?.exportFields ?? exportFields),
+      };
+
+      await saveSettings(nextSettings);
+      setStoreCode(nextSettings.storeCode);
+      setHideExpiredCatalogues(nextSettings.hideExpiredCatalogues);
+      setExportFields(nextSettings.exportFields);
+      setSavedSettings(nextSettings);
+      return nextSettings;
+    },
+    [exportFields, hideExpiredCatalogues, storeCode],
+  );
+
+  const refreshCatalogueData = useCallback(async (options?: {
     nextStoreCode?: string;
     showBusy?: boolean;
     showLoadedMessage?: boolean;
-  }): Promise<void> {
+  }): Promise<void> => {
     const targetStoreCode = normalizeStoreCode(options?.nextStoreCode ?? storeCode);
 
     if (options?.showBusy !== false) {
@@ -220,6 +305,105 @@ export default function App(): React.ReactElement {
         setBusyLabel("");
       }
     }
+  }, [storeCode]);
+
+  async function refreshImportsList(options?: { showBusy?: boolean }): Promise<void> {
+    if (options?.showBusy) {
+      setImportBusy("Loading imports...");
+    }
+
+    setImportError("");
+
+    try {
+      const imported = await listImports();
+      setImportsList(imported);
+    } catch (error) {
+      setImportError(errorMessage(error));
+    } finally {
+      if (options?.showBusy) {
+        setImportBusy("");
+      }
+    }
+  }
+
+  async function handleImportFile(): Promise<void> {
+    setImportBusy("Opening file picker...");
+    setImportError("");
+    setImportStatus("");
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          "text/csv",
+          "text/comma-separated-values",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/vnd.ms-excel",
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri || !asset.name) {
+        throw new Error("No import file selected.");
+      }
+
+      setImportBusy(`Importing ${asset.name}...`);
+
+      const parsed = await parseImportFile(asset.uri, asset.name, asset.mimeType);
+      await saveImport(parsed);
+      await refreshImportsList();
+
+      setImportStatus(
+        `${parsed.name}: imported ${parsed.barcodeCount}/${parsed.itemCount} barcode(s).`,
+      );
+    } catch (error) {
+      setImportError(errorMessage(error));
+    } finally {
+      setImportBusy("");
+    }
+  }
+
+  async function handleOpenImport(id: string): Promise<void> {
+    setImportBusy("Opening import...");
+    setImportError("");
+
+    try {
+      const imported = await loadImport(id);
+      if (!imported) {
+        throw new Error("That import is no longer available.");
+      }
+      setSelectedImport(imported);
+      setImportSearch("");
+      setImportPage(0);
+    } catch (error) {
+      setImportError(errorMessage(error));
+    } finally {
+      setImportBusy("");
+    }
+  }
+
+  async function handleDeleteImport(id: string): Promise<void> {
+    setImportBusy("Deleting import...");
+    setImportError("");
+    setImportStatus("");
+
+    try {
+      await deleteImport(id);
+      if (selectedImport?.id === id) {
+        setSelectedImport(null);
+      }
+      await refreshImportsList();
+      setImportStatus("Import deleted.");
+    } catch (error) {
+      setImportError(errorMessage(error));
+    } finally {
+      setImportBusy("");
+    }
   }
 
   useEffect(() => {
@@ -235,6 +419,7 @@ export default function App(): React.ReactElement {
           nextStoreCode: settings.storeCode,
           showLoadedMessage: false,
         });
+        await refreshImportsList();
       } catch (error) {
         setErrorText(errorMessage(error));
       }
@@ -247,12 +432,25 @@ export default function App(): React.ReactElement {
     setBusyLabel(
       forceRefresh ? "Refreshing all visible site catalogues..." : "Pulling missing site catalogues...",
     );
+    setDownloadingCatalogueId(null);
+    setDownloadProgressPercent(null);
+    setIsBulkDownloading(true);
+    setBulkDownloadProgressPercent(0);
     setErrorText("");
     setStatusMessage("");
 
     try {
       const nextSettings = await persistSettings();
-      const summary = await syncAllMissingCatalogues(nextSettings.storeCode, forceRefresh);
+      const summary = await syncAllMissingCatalogues(
+        nextSettings.storeCode,
+        forceRefresh,
+        (current, total) => {
+          setBusyLabel(`Downloading ${current}/${total} catalogues...`);
+          setBulkDownloadProgressPercent(
+            total > 0 ? Math.round((current / total) * 100) : 0,
+          );
+        },
+      );
       setSyncSummary(summary);
       await refreshCatalogueData({
         nextStoreCode: nextSettings.storeCode,
@@ -265,35 +463,57 @@ export default function App(): React.ReactElement {
     } catch (error) {
       setErrorText(errorMessage(error));
     } finally {
+      setIsBulkDownloading(false);
+      setBulkDownloadProgressPercent(null);
       setBusyLabel("");
     }
   }
 
-  async function pullSingleCatalogue(item: DirectoryItem): Promise<void> {
+  const pullSingleCatalogue = useCallback(
+    async (item: DirectoryItem): Promise<void> => {
+      lastDownloadProgressRef.current = { updatedAt: 0, percent: null };
+      setDownloadingCatalogueId(item.catalogueId);
+      setDownloadProgressPercent(0);
+      setBusyLabel(`Pulling ${item.label}...`);
+      setErrorText("");
+      setStatusMessage("");
 
-    setBusyLabel(`Pulling ${item.label}...`);
-    setErrorText("");
-    setStatusMessage("");
+      try {
+        const nextSettings = await persistSettings();
+        const outcome = await scanCatalogue(
+          item.pullSource,
+          nextSettings.storeCode,
+          false,
+          item.label,
+          reportDownloadProgress,
+        );
+        await refreshCatalogueData({
+          nextStoreCode: nextSettings.storeCode,
+          showBusy: false,
+          showLoadedMessage: false,
+        });
+        setStatusMessage(
+          `${outcome.dump.label}: ${outcome.result.barcodesFound}/${outcome.result.itemCount} barcodes found.`,
+        );
+      } catch (error) {
+        setErrorText(errorMessage(error));
+      } finally {
+        setDownloadingCatalogueId(null);
+        setDownloadProgressPercent(null);
+        setBusyLabel("");
+      }
+    },
+    [persistSettings, refreshCatalogueData, reportDownloadProgress],
+  );
 
-    try {
-      const nextSettings = await persistSettings();
-      const outcome = await scanCatalogue(item.pullSource, nextSettings.storeCode, false, item.label);
-      await refreshCatalogueData({
-        nextStoreCode: nextSettings.storeCode,
-        showBusy: false,
-        showLoadedMessage: false,
-      });
-      setStatusMessage(
-        `${outcome.dump.label}: ${outcome.result.barcodesFound}/${outcome.result.itemCount} barcodes found.`,
-      );
-    } catch (error) {
-      setErrorText(errorMessage(error));
-    } finally {
-      setBusyLabel("");
-    }
-  }
+  const handlePullItem = useCallback(
+    (item: DirectoryItem) => {
+      void pullSingleCatalogue(item);
+    },
+    [pullSingleCatalogue],
+  );
 
-  async function openDump(catalogueId: string): Promise<void> {
+  const openDump = useCallback(async (catalogueId: string): Promise<void> => {
     setBusyLabel("Opening cached dump...");
     setErrorText("");
 
@@ -311,44 +531,88 @@ export default function App(): React.ReactElement {
     } finally {
       setBusyLabel("");
     }
-  }
+  }, []);
+
+  const handleOpenDump = useCallback(
+    (catalogueId: string) => {
+      void openDump(catalogueId);
+    },
+    [openDump],
+  );
 
   async function sendEmail(catalogueId: string): Promise<void> {
-    const entry =
-      cachedCatalogues.find((item) => item.catalogueId === catalogueId) ??
-      (selectedDump?.catalogueId === catalogueId ? selectedDump : null);
-
-    if (!entry) {
-      Alert.alert("No catalogue selected", "That catalogue is not available for email.");
-      return;
-    }
-
-    setBusyLabel("Opening email composer...");
+    setIsGeneratingCsv(true);
+    setBusyLabel("Preparing export...");
     setErrorText("");
 
     try {
-      if (await MailComposer.isAvailableAsync()) {
+      const canEmail = await MailComposer.isAvailableAsync();
+      const canShare = canEmail ? false : await Sharing.isAvailableAsync();
+      if (!canEmail && !canShare) {
+        throw new Error("No email or file sharing app is available on this device.");
+      }
+
+      let entry = cachedCatalogues.find((item) => item.catalogueId === catalogueId) ?? null;
+      const selectedDumpMatch = selectedDump?.catalogueId === catalogueId ? selectedDump : null;
+
+      if (!entry && selectedDumpMatch) {
+        try {
+          const manifest = await loadManifestCache();
+          entry = manifest.catalogues[catalogueId] ?? null;
+        } catch (error) {
+          console.warn("Failed to load manifest cache while preparing export", error);
+        }
+      }
+
+      let dumpUri: string | null = null;
+      let csvUriHint: string | undefined;
+      let label: string | null = null;
+      let metadata: ManifestEntry | CatalogueDump | null = null;
+
+      if (entry?.dumpUri) {
+        dumpUri = entry.dumpUri;
+        csvUriHint = entry.csvUri;
+        label = entry.label;
+        metadata = entry;
+      } else if (selectedDumpMatch) {
+        const persisted = await saveDump(selectedDumpMatch);
+        dumpUri = persisted.dumpUri;
+        csvUriHint = persisted.csvUri;
+        label = persisted.dump.label;
+        metadata = persisted.dump;
+      }
+
+      if (!dumpUri || !label || !metadata) {
+        Alert.alert("No catalogue selected", "That catalogue is not available for email.");
+        return;
+      }
+
+      setBusyLabel("Building CSV export...");
+      const csvUri = await ensureCsvForDump(dumpUri, csvUriHint);
+
+      if (canEmail) {
+        setBusyLabel("Opening email composer...");
         await MailComposer.composeAsync({
-          subject: defaultEmailSubject(entry),
-          body: defaultEmailBody(entry),
-          attachments: [entry.csvUri],
+          subject: defaultEmailSubject(metadata),
+          body: defaultEmailBody(metadata),
+          attachments: [csvUri],
         });
-        setStatusMessage(`Email composer opened for ${entry.label}.`);
-      } else if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(entry.csvUri, {
-          dialogTitle: `${entry.label} CSV`,
+        setStatusMessage(`Email composer opened for ${label}.`);
+      } else {
+        setBusyLabel("Opening share sheet...");
+        await Sharing.shareAsync(csvUri, {
+          dialogTitle: `${label} CSV`,
           mimeType: "text/csv",
           UTI: "public.comma-separated-values-text",
         });
         setStatusMessage(
           "Mail composer is unavailable on this device, so the CSV was shared instead.",
         );
-      } else {
-        throw new Error("No email or file sharing app is available on this device.");
       }
     } catch (error) {
       setErrorText(errorMessage(error));
     } finally {
+      setIsGeneratingCsv(false);
       setBusyLabel("");
     }
   }
@@ -407,6 +671,11 @@ export default function App(): React.ReactElement {
     void sendEmail(catalogueId);
   }
 
+  const showingImports = activeTab === "imports";
+  const statusBannerBusyLabel = showingImports ? importBusy : busyLabel;
+  const statusBannerErrorText = showingImports ? importError : errorText;
+  const statusBannerMessage = showingImports ? importStatus : statusMessage;
+
   return (
     <SafeAreaProvider>
       <SafeAreaView
@@ -419,9 +688,9 @@ export default function App(): React.ReactElement {
         />
         <View style={styles.appShell}>
           <View style={styles.headerBlock}>
-            <Text style={styles.title}>Pick n Pay Catalogue Helper</Text>
-            <Text style={styles.subtitle}>
-              Live catalogue tracking, barcode dump review, and CSV email from one Expo app.
+            <Image accessible={false} source={pnpLogo} style={styles.headerLogo} />
+            <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+              PnP Catalogue Helper
             </Text>
           </View>
 
@@ -431,7 +700,12 @@ export default function App(): React.ReactElement {
               return (
                 <Pressable
                   key={tab.key}
-                  onPress={() => setActiveTab(tab.key)}
+                  onPress={() => {
+                    setActiveTab(tab.key);
+                    if (tab.key !== "imports") {
+                      setSelectedImport(null);
+                    }
+                  }}
                   style={[styles.tabButton, active && styles.tabButtonActive]}
                 >
                   <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
@@ -441,13 +715,18 @@ export default function App(): React.ReactElement {
           </View>
 
           <StatusBanner
-            busyLabel={busyLabel}
-            errorText={errorText}
+            busyLabel={statusBannerBusyLabel}
+            errorText={statusBannerErrorText}
             onDismiss={() => {
+              if (showingImports) {
+                setImportError("");
+                setImportStatus("");
+                return;
+              }
               setErrorText("");
               setStatusMessage("");
             }}
-            statusMessage={statusMessage}
+            statusMessage={statusBannerMessage}
           />
 
           <View style={styles.flex}>
@@ -457,6 +736,7 @@ export default function App(): React.ReactElement {
                   dumpRowsPage={dumpRowsPage}
                   dumpSearch={dumpSearch}
                   filteredDumpRows={filteredDumpRows}
+                  isGeneratingCsv={isGeneratingCsv}
                   onBackToCatalogues={() => {
                     setSelectedDump(null);
                     setActiveTab("catalogues");
@@ -472,26 +752,60 @@ export default function App(): React.ReactElement {
                   cachedCount={visibleCachedCatalogues.length}
                   cataloguePage={cataloguePage}
                   directoryItems={directoryItems}
+                  downloadingCatalogueId={downloadingCatalogueId}
+                  downloadProgressPercent={downloadProgressPercent}
                   hideExpiredCatalogues={hideExpiredCatalogues}
+                  isBulkDownloading={isBulkDownloading}
+                  bulkDownloadProgressPercent={bulkDownloadProgressPercent}
                   onCataloguePageChange={setCataloguePage}
                   onForceRefresh={() => {
                     void runPull(true);
                   }}
-                  onOpenDump={(catalogueId) => {
-                    void openDump(catalogueId);
-                  }}
+                  onOpenDump={handleOpenDump}
                   onPullAll={() => {
                     void runPull(false);
                   }}
-                  onPullItem={(item) => {
-                    void pullSingleCatalogue(item);
-                  }}
+                  onPullItem={handlePullItem}
                   onRefreshList={() => {
                     void refreshCatalogueData();
                   }}
                   pagedDirectoryItems={pagedDirectoryItems}
                   siteCount={siteTargets.length}
                   syncSummary={syncSummary}
+                />
+              )
+            ) : null}
+
+            {activeTab === "imports" ? (
+              selectedImport ? (
+                <ImportViewScreen
+                  filteredImportItems={filteredImportItems}
+                  importPage={importPage}
+                  importSearch={importSearch}
+                  pageSize={IMPORT_ITEMS_PAGE_SIZE}
+                  onBack={() => {
+                    setSelectedImport(null);
+                  }}
+                  onImportPageChange={setImportPage}
+                  onImportSearchChange={setImportSearch}
+                  pagedImportItems={pagedImportItems}
+                  selectedImport={selectedImport}
+                />
+              ) : (
+                <ImportsScreen
+                  importsList={importsList}
+                  importsPage={importsPage}
+                  onDelete={(id) => {
+                    void handleDeleteImport(id);
+                  }}
+                  onImport={() => {
+                    void handleImportFile();
+                  }}
+                  onOpen={(id) => {
+                    void handleOpenImport(id);
+                  }}
+                  onImportsPageChange={setImportsPage}
+                  pagedImportsList={pagedImportsList}
                 />
               )
             ) : null}
@@ -539,9 +853,11 @@ const styles = StyleSheet.create({
   },
   headerBlock: {
     backgroundColor: BRAND.red,
-    borderRadius: 28,
+    borderRadius: 20,
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
     shadowColor: "#8b1610",
     shadowOpacity: 0.18,
     shadowRadius: 18,
@@ -551,16 +867,17 @@ const styles = StyleSheet.create({
     },
     elevation: 4,
   },
+  headerLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginEnd: 12,
+  },
   title: {
-    fontSize: 30,
+    fontSize: 18,
     fontWeight: "800",
     color: BRAND.white,
-  },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 15,
-    lineHeight: 22,
-    color: "#fff0ee",
+    flexShrink: 1,
   },
   tabRow: {
     flexDirection: "row",
