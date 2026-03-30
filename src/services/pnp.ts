@@ -1023,14 +1023,14 @@ function deriveDumpWindow(rows: ProductRow[]): {
   };
 }
 
-function coalesceNonEmpty(...values: Array<string | undefined | null>): string {
+function coalesceNonEmpty(...values: Array<string | undefined | null>): string | undefined {
   for (const value of values) {
     const trimmed = value?.trim();
     if (trimmed) {
       return trimmed;
     }
   }
-  return "";
+  return undefined;
 }
 
 async function exportTarget(
@@ -1045,7 +1045,7 @@ async function exportTarget(
   const existingEntry = manifest.catalogues[key];
 
   const slugLike = coalesceNonEmpty(target.slug, existingEntry?.slug);
-  const slug = slugLike || target.label;
+  const slug = slugLike ?? target.label;
   let label = target.label;
   if (
     existingEntry &&
@@ -1056,8 +1056,8 @@ async function exportTarget(
   ) {
     label = existingEntry.label;
   }
-  const sourceUrl = coalesceNonEmpty(target.sourceUrl, existingEntry?.sourceUrl);
-  const discoveredFrom = coalesceNonEmpty(target.discoveredFrom, existingEntry?.discoveredFrom);
+  const sourceUrl = coalesceNonEmpty(target.sourceUrl, existingEntry?.sourceUrl) ?? "";
+  const discoveredFrom = coalesceNonEmpty(target.discoveredFrom, existingEntry?.discoveredFrom) ?? "";
   const catalogueStartDate = target.catalogueStartDate ?? existingEntry?.catalogueStartDate ?? null;
   const catalogueEndDate = target.catalogueEndDate ?? existingEntry?.catalogueEndDate ?? null;
   const catalogueImageUrl = coalesceCatalogueImageUrl(
