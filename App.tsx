@@ -165,6 +165,8 @@ export default function App(): React.ReactElement {
       const now = Date.now();
       const { percent: lastPercent, updatedAt } = lastDownloadProgressRef.current;
 
+      // Progress is expected to be a finite 0..1 ratio. Ignore invalid values to
+      // avoid regressing the UI into out-of-range percent states.
       if (!Number.isFinite(progress)) {
         return;
       }

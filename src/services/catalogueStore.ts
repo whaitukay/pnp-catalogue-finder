@@ -362,6 +362,11 @@ export function safeFileName(value: string): string {
   );
 }
 
+function getSafeExportUri(uri: string | undefined | null): string | undefined {
+  const normalized = normalizeNullableText(uri);
+  return normalized && normalized.startsWith(EXPORTS_DIR) ? normalized : undefined;
+}
+
 export async function ensureStorage(): Promise<void> {
   await Promise.all([
     ensureDirectory(ROOT_DIR),
@@ -426,11 +431,7 @@ export async function saveDump(
 export async function ensureCsvForDump(dumpUri: string, csvUri?: string): Promise<string> {
   await ensureStorage();
 
-  const normalizedCsvUri = normalizeNullableText(csvUri);
-  const safeCsvUri =
-    normalizedCsvUri && normalizedCsvUri.startsWith(EXPORTS_DIR)
-      ? normalizedCsvUri
-      : undefined;
+  const safeCsvUri = getSafeExportUri(csvUri);
 
   if (safeCsvUri && (await fileExists(safeCsvUri))) {
     return safeCsvUri;
@@ -441,11 +442,7 @@ export async function ensureCsvForDump(dumpUri: string, csvUri?: string): Promis
     throw new Error("That catalogue dump is no longer available.");
   }
 
-  const normalizedDumpCsvUri = normalizeNullableText(dump.csvUri);
-  const safeDumpCsvUri =
-    normalizedDumpCsvUri && normalizedDumpCsvUri.startsWith(EXPORTS_DIR)
-      ? normalizedDumpCsvUri
-      : undefined;
+  const safeDumpCsvUri = getSafeExportUri(dump.csvUri);
   const { csvUri: resolvedCsvUri } = buildDumpPaths({
     ...dump,
     csvUri: safeCsvUri ?? safeDumpCsvUri,
