@@ -1,4 +1,5 @@
 import * as FileSystem from "expo-file-system/legacy";
+import * as XLSX from "xlsx";
 
 import {
   DEFAULT_EXPORT_FIELDS,
@@ -227,6 +228,7 @@ function normalizeDumpValue(dump: unknown): CatalogueDump {
     catalogueEndDate,
     expired: isExpired(catalogueEndDate),
     csvUri: normalizeNullableText(raw?.csvUri) ?? undefined,
+    xlsxUri: normalizeNullableText(raw?.xlsxUri) ?? undefined,
     rows,
   };
 }
@@ -347,6 +349,7 @@ function normalizeManifestEntry(entry: unknown): ManifestEntry {
     catalogueEndDate,
     expired: isExpired(catalogueEndDate),
     csvUri: normalizeNullableText(raw?.csvUri) ?? undefined,
+    xlsxUri: normalizeNullableText(raw?.xlsxUri) ?? undefined,
     dumpUri: normalizeText(raw?.dumpUri),
   };
 }
@@ -374,7 +377,7 @@ function sortTimestamp(entry: ManifestEntry): number {
 
 function buildDumpPaths(
   dump: CatalogueDump,
-): { baseName: string; csvUri: string; dumpUri: string } {
+): { baseName: string; csvUri: string; xlsxUri: string; dumpUri: string } {
   const baseName = `${safeFileName(dump.storeCode)}-${safeFileName(
     dump.catalogueId || dump.slug || dump.label || "catalogue-specials",
   )}`;
@@ -382,6 +385,7 @@ function buildDumpPaths(
   return {
     baseName,
     csvUri: dump.csvUri || `${EXPORTS_DIR}${baseName}-barcodes.csv`,
+    xlsxUri: dump.xlsxUri || `${EXPORTS_DIR}${baseName}-barcodes.xlsx`,
     dumpUri: `${DUMPS_DIR}${baseName}-dump.json`,
   };
 }
@@ -478,6 +482,31 @@ async function writeCsvForDump(
   });
 }
 
+function buildXlsx(dump: CatalogueDump, fields: ExportFieldKey[]): XLSX.WorkBook {
+  const selectedFields = fields.length > 0 ? fields : DEFAULT_EXPORT_FIELDS;
+  const header = selectedFields.map((field) => CSV_FIELD_DEFINITIONS[field].header);
+  const rows = dump.rows.map((row) =>
+    selectedFields.map((field) => CSV_FIELD_DEFINITIONS[field].getValue(row, dump)),
+  );
+
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  XLSX.utils.book_append_sheet(workbook, sheet, "Export");
+  return workbook;
+}
+
+async function writeXlsxForDump(
+  dump: CatalogueDump,
+  xlsxUri: string,
+  fields: ExportFieldKey[],
+): Promise<void> {
+  const workbook = buildXlsx(dump, fields);
+  const encoded = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+  await FileSystem.writeAsStringAsync(xlsxUri, encoded, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+}
+
 export async function ensureStorage(): Promise<void> {
   await Promise.all([
     ensureDirectory(ROOT_DIR),
@@ -530,14 +559,15 @@ export async function fileExists(uri: string): Promise<boolean> {
 
 export async function saveDump(
   dump: CatalogueDump,
-): Promise<{ dump: CatalogueDump; dumpUri: string; csvUri?: string }> {
+): Promise<{ dump: CatalogueDump; dumpUri: string; csvUri?: string; xlsxUri?: string }> {
   await ensureStorage();
 
   const normalizedDump = normalizeDumpValue(dump);
-  const { csvUri, dumpUri } = buildDumpPaths(normalizedDump);
+  const { csvUri, xlsxUri, dumpUri } = buildDumpPaths(normalizedDump);
   const persistedDump: CatalogueDump = {
     ...normalizedDump,
     csvUri: undefined,
+    xlsxUri: undefined,
   };
 
   await writeJson(dumpUri, persistedDump);
@@ -546,6 +576,7 @@ export async function saveDump(
     dump: persistedDump,
     dumpUri,
     csvUri,
+    xlsxUri,
   };
 }
 
@@ -581,6 +612,41 @@ export async function ensureCsvForDump(dumpUri: string, csvUri?: string): Promis
   return resolvedCsvUri;
 }
 
+export async function ensureXlsxForDump(
+  dumpUri: string,
+  xlsxUri?: string,
+): Promise<string> {
+  await ensureStorage();
+
+  const safeXlsxUriHint = getSafeExportUri(xlsxUri);
+  if (safeXlsxUriHint && (await fileExists(safeXlsxUriHint))) {
+    return safeXlsxUriHint;
+  }
+
+  const dump = await loadDumpByUri(dumpUri);
+  if (!dump) {
+    throw new Error("That catalogue dump is no longer available.");
+  }
+
+  const safeDumpXlsxUri = getSafeExportUri(dump.xlsxUri);
+  if (safeDumpXlsxUri && (await fileExists(safeDumpXlsxUri))) {
+    return safeDumpXlsxUri;
+  }
+
+  const { xlsxUri: resolvedXlsxUri } = buildDumpPaths({
+    ...dump,
+    xlsxUri: safeXlsxUriHint ?? safeDumpXlsxUri,
+  });
+
+  if (await fileExists(resolvedXlsxUri)) {
+    return resolvedXlsxUri;
+  }
+
+  const settings = await loadSettings();
+  await writeXlsxForDump(dump, resolvedXlsxUri, settings.exportFields);
+  return resolvedXlsxUri;
+}
+
 export async function invalidateAllCsvExports(): Promise<number> {
   await ensureStorage();
 
@@ -605,6 +671,38 @@ export async function invalidateAllCsvExports(): Promise<number> {
       ...entry,
       csvUri: undefined,
     };
+    invalidatedCount += 1;
+  }
+
+  await saveManifestCache(manifest);
+  return invalidatedCount;
+}
+
+export async function invalidateAllXlsxExports(): Promise<number> {
+  await ensureStorage();
+
+  const manifest = await loadManifestCache();
+  let invalidatedCount = 0;
+
+  for (const [catalogueId, entry] of Object.entries(manifest.catalogues)) {
+    if (!entry.xlsxUri) {
+      continue;
+    }
+
+    const safeEntryXlsxUri = getSafeExportUri(entry.xlsxUri);
+    if (safeEntryXlsxUri) {
+      try {
+        await FileSystem.deleteAsync(safeEntryXlsxUri, { idempotent: true });
+      } catch {
+        // Best-effort delete: clearing the manifest is the essential part.
+      }
+    }
+
+    manifest.catalogues[catalogueId] = {
+      ...entry,
+      xlsxUri: undefined,
+    };
+
     invalidatedCount += 1;
   }
 
@@ -725,5 +823,5 @@ export function defaultEmailSubject(entry: ManifestEntry | CatalogueDump): strin
 }
 
 export function defaultEmailBody(entry: ManifestEntry | CatalogueDump): string {
-  return `Attached is the CSV export for ${entry.label}.`;
+  return `Attached is the export for ${entry.label}.`;
 }

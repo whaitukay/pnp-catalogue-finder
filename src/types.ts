@@ -15,6 +15,8 @@ export type ExportFieldKey =
   | "barcodeFound"
   | "error";
 
+export type ExportFormat = "csv" | "xlsx";
+
 export type ExportFieldOption = {
   key: ExportFieldKey;
   label: string;
@@ -169,6 +171,7 @@ export type CatalogueDump = {
   catalogueEndDate: number | null;
   expired: boolean;
   csvUri?: string;
+  xlsxUri?: string;
   rows: ProductRow[];
 };
 
@@ -189,6 +192,7 @@ export type ManifestEntry = {
   catalogueEndDate: number | null;
   expired: boolean;
   csvUri?: string;
+  xlsxUri?: string;
   dumpUri: string;
 };
 
