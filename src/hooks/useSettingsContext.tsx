@@ -5,7 +5,7 @@ import {
   DEFAULT_SETTINGS,
   ensureStorage,
   loadSettings,
-  rebuildAllCsvExports,
+  invalidateAllCsvExports,
   saveSettings,
 } from "../services/catalogueStore";
 import type { AppSettings, ExportFieldKey } from "../types";
@@ -25,7 +25,7 @@ function errorMessage(error: unknown): string {
 type SaveSettingsOutcome = {
   settings: AppSettings;
   fieldsChanged: boolean;
-  rebuiltCount: number;
+  invalidatedCount: number;
 };
 
 type SettingsContextValue = {
@@ -133,9 +133,9 @@ export function SettingsProvider({
       nextSettings.exportFields,
     );
 
-    let rebuiltCount = 0;
+    let invalidatedCount = 0;
     if (fieldsChanged) {
-      rebuiltCount = await rebuildAllCsvExports();
+      invalidatedCount = await invalidateAllCsvExports();
     }
 
     setSettingsSaveToken((current) => current + 1);
@@ -143,7 +143,7 @@ export function SettingsProvider({
     return {
       settings: nextSettings,
       fieldsChanged,
-      rebuiltCount,
+      invalidatedCount,
     };
   }, [persistSettings, savedSettings]);
 

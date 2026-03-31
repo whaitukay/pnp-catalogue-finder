@@ -581,51 +581,31 @@ export async function ensureCsvForDump(dumpUri: string, csvUri?: string): Promis
   return resolvedCsvUri;
 }
 
-export async function rebuildAllCsvExports(): Promise<number> {
+export async function invalidateAllCsvExports(): Promise<number> {
   await ensureStorage();
 
   const manifest = await loadManifestCache();
-  const settings = await loadSettings();
-  let rewrittenCount = 0;
+  let invalidatedCount = 0;
 
   for (const [catalogueId, entry] of Object.entries(manifest.catalogues)) {
-    if (!entry.dumpUri) {
-      continue;
-    }
-
-    const dump = await loadDumpByUri(entry.dumpUri);
-    if (!dump) {
+    if (!entry.csvUri) {
       continue;
     }
 
     const safeEntryCsvUri = getSafeExportUri(entry.csvUri);
-    const safeDumpCsvUri = getSafeExportUri(dump.csvUri);
-    const persisted = await saveDump({
-      ...dump,
-      csvUri: safeEntryCsvUri ?? safeDumpCsvUri,
-    });
-
-    const exportCsvUri = getSafeExportUri(persisted.csvUri);
-
-    if (exportCsvUri) {
-      await writeCsvForDump(persisted.dump, exportCsvUri, settings.exportFields);
+    if (safeEntryCsvUri) {
+      await FileSystem.deleteAsync(safeEntryCsvUri, { idempotent: true });
     }
 
     manifest.catalogues[catalogueId] = {
       ...entry,
-      ...(exportCsvUri ? { csvUri: exportCsvUri } : {}),
-      dumpUri: persisted.dumpUri,
-      expired: persisted.dump.expired,
-      itemCount: persisted.dump.itemCount,
-      barcodeCount: persisted.dump.barcodeCount,
-      exportedAt: persisted.dump.exportedAt,
+      csvUri: "",
     };
-
-    rewrittenCount += 1;
+    invalidatedCount += 1;
   }
 
   await saveManifestCache(manifest);
-  return rewrittenCount;
+  return invalidatedCount;
 }
 
 export async function loadDumpByUri(uri: string): Promise<CatalogueDump | null> {

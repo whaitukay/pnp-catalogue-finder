@@ -37,18 +37,13 @@ export function SettingsScreen(): React.ReactElement {
   const { clearFeedback, setBusy, setError, setStatus } = useFeedback();
 
   const handleSaveSettings = React.useCallback(async () => {
-    const wasDirty = settingsDirty;
     setBusy("Saving settings...");
     clearFeedback();
 
     try {
       const outcome = await saveAppSettings();
-      if (!wasDirty) {
-        setStatus("Settings already up to date.");
-      } else if (outcome.fieldsChanged) {
-        setStatus(
-          `Settings saved. Rebuilt ${outcome.rebuiltCount} CSV export(s).`,
-        );
+      if (outcome.fieldsChanged) {
+        setStatus("Settings saved. Exports will update on next share.");
       } else {
         setStatus("Settings saved.");
       }
@@ -57,7 +52,7 @@ export function SettingsScreen(): React.ReactElement {
     } finally {
       setBusy("");
     }
-  }, [clearFeedback, saveAppSettings, setBusy, setError, setStatus, settingsDirty]);
+  }, [clearFeedback, saveAppSettings, setBusy, setError, setStatus]);
 
   if (settingsLoading) {
     return (
@@ -110,7 +105,7 @@ export function SettingsScreen(): React.ReactElement {
       <View style={sharedStyles.card}>
         <Text style={sharedStyles.cardTitle}>CSV export fields</Text>
         <Text style={sharedStyles.bodyText}>
-          Saving field changes rewrites cached CSV exports so email attachments use the new shape.
+          Saving field changes clears cached CSV exports so the next share uses the new shape.
         </Text>
 
         <View style={styles.fieldList}>
@@ -139,10 +134,12 @@ export function SettingsScreen(): React.ReactElement {
         </View>
       </View>
 
-      <Pressable onPress={handleSaveSettings} style={sharedStyles.primaryButton}>
-        <Text style={sharedStyles.primaryButtonText}>
-          {settingsDirty ? "Save settings" : "Rebuild CSVs"}
-        </Text>
+      <Pressable
+        disabled={!settingsDirty}
+        onPress={handleSaveSettings}
+        style={[sharedStyles.primaryButton, !settingsDirty && styles.primaryButtonDisabled]}
+      >
+        <Text style={sharedStyles.primaryButtonText}>Save Settings</Text>
       </Pressable>
     </ScrollView>
   );
@@ -199,5 +196,8 @@ const styles = StyleSheet.create({
   },
   fieldDescriptionActive: {
     color: BRAND.blue,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.5,
   },
 });
