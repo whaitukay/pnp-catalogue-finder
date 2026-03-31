@@ -6,4 +6,3 @@ export { PaginationControls } from "./PaginationControls";
 export { ProgressButton } from "./ProgressButton";
 export { StatusBadge } from "./StatusBadge";
 export { StatusBanner } from "./StatusBanner";
-export { ZoomableImage } from "./ZoomableImage";
