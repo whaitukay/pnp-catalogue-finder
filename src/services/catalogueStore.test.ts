@@ -24,6 +24,9 @@ vi.mock("expo-file-system/legacy", () => ({
 
 import { ensureCsvForDump, saveDump } from "./catalogueStore";
 
+const EXPORTS_DIR = "file:///mock-docs/catalogue-helper/exports/";
+const MANIFEST_URI = "file:///mock-docs/catalogue-helper/cache/catalogue-manifests.json";
+
 describe("catalogueStore CSV dump", () => {
   beforeEach(() => {
     fsMock.files.clear();
@@ -103,5 +106,143 @@ describe("catalogueStore CSV dump", () => {
     expect(csvContent).toMatch(
       /"Combo For R100\.00"/,
     );
+  });
+
+  it("rejects traversal csvUri hints under the exports directory", async () => {
+    const dump: CatalogueDump = {
+      catalogueId: "WC21:burger-fridays",
+      storeCode: "WC21",
+      label: "burger-fridays",
+      slug: "burger-fridays",
+      query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
+      sourceUrl:
+        "https://www.pnp.co.za/Burger-Fridays/c/burger-fridays?q=%3Arelevance%3AallCategories%3Aburger-fridays%3AisOnPromotion%3AOn%2BPromotion",
+      discoveredFrom: "sample",
+      exportedAt: 1_774_608_000_000,
+      itemCount: 1,
+      barcodeCount: 1,
+      catalogueStartDate: Date.parse("2026-03-26T22:00:00.000Z"),
+      catalogueEndDate: Date.parse("2026-03-27T21:59:59.000Z"),
+      expired: false,
+      rows: [],
+    };
+
+    const persisted = await saveDump(dump);
+    const csvUri = persisted.csvUri;
+    if (!csvUri) {
+      throw new Error("Expected saveDump to return a csvUri path.");
+    }
+
+    const traversalHint = `${EXPORTS_DIR}../dumps/evil.csv`;
+
+    const ensuredCsvUri = await ensureCsvForDump(persisted.dumpUri, traversalHint);
+    expect(ensuredCsvUri).toBe(csvUri);
+    expect(fsMock.files.has(ensuredCsvUri)).toBe(true);
+    expect(fsMock.files.has(traversalHint)).toBe(false);
+  });
+
+  it("prefers an existing dump csvUri over a missing hint", async () => {
+    const dump: CatalogueDump = {
+      catalogueId: "WC21:burger-fridays",
+      storeCode: "WC21",
+      label: "burger-fridays",
+      slug: "burger-fridays",
+      query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
+      sourceUrl:
+        "https://www.pnp.co.za/Burger-Fridays/c/burger-fridays?q=%3Arelevance%3AallCategories%3Aburger-fridays%3AisOnPromotion%3AOn%2BPromotion",
+      discoveredFrom: "sample",
+      exportedAt: 1_774_608_000_000,
+      itemCount: 1,
+      barcodeCount: 1,
+      catalogueStartDate: Date.parse("2026-03-26T22:00:00.000Z"),
+      catalogueEndDate: Date.parse("2026-03-27T21:59:59.000Z"),
+      expired: false,
+      rows: [],
+    };
+
+    const persisted = await saveDump(dump);
+    const dumpContent = fsMock.files.get(persisted.dumpUri) ?? "";
+    const existingCsvUri = `${EXPORTS_DIR}existing.csv`;
+    const hintCsvUri = `${EXPORTS_DIR}hint.csv`;
+
+    fsMock.files.set(existingCsvUri, "existing");
+    fsMock.files.set(
+      persisted.dumpUri,
+      JSON.stringify({
+        ...(JSON.parse(dumpContent) as CatalogueDump),
+        csvUri: existingCsvUri,
+      }),
+    );
+
+    const ensuredCsvUri = await ensureCsvForDump(persisted.dumpUri, hintCsvUri);
+    expect(ensuredCsvUri).toBe(existingCsvUri);
+    expect(fsMock.files.has(hintCsvUri)).toBe(false);
+  });
+
+  it("guards rebuildAllCsvExports against traversal csvUri overrides", async () => {
+    const dump: CatalogueDump = {
+      catalogueId: "WC21:burger-fridays",
+      storeCode: "WC21",
+      label: "burger-fridays",
+      slug: "burger-fridays",
+      query: ":relevance:allCategories:burger-fridays:isOnPromotion:On Promotion",
+      sourceUrl:
+        "https://www.pnp.co.za/Burger-Fridays/c/burger-fridays?q=%3Arelevance%3AallCategories%3Aburger-fridays%3AisOnPromotion%3AOn%2BPromotion",
+      discoveredFrom: "sample",
+      exportedAt: 1_774_608_000_000,
+      itemCount: 1,
+      barcodeCount: 1,
+      catalogueStartDate: Date.parse("2026-03-26T22:00:00.000Z"),
+      catalogueEndDate: Date.parse("2026-03-27T21:59:59.000Z"),
+      expired: false,
+      rows: [],
+    };
+
+    const persisted = await saveDump(dump);
+    const csvUri = persisted.csvUri;
+    if (!csvUri) {
+      throw new Error("Expected saveDump to return a csvUri path.");
+    }
+
+    fsMock.files.set(
+      MANIFEST_URI,
+      JSON.stringify({
+        version: 1,
+        catalogues: {
+          [dump.catalogueId]: {
+            catalogueId: dump.catalogueId,
+            storeCode: dump.storeCode,
+            label: dump.label,
+            slug: dump.slug,
+            query: dump.query,
+            itemCount: dump.itemCount,
+            barcodeCount: dump.barcodeCount,
+            productCodes: [],
+            exportedAt: dump.exportedAt,
+            sourceUrl: dump.sourceUrl,
+            discoveredFrom: dump.discoveredFrom,
+            catalogueImageUrl: null,
+            catalogueStartDate: dump.catalogueStartDate,
+            catalogueEndDate: dump.catalogueEndDate,
+            expired: dump.expired,
+            csvUri: `${EXPORTS_DIR}../dumps/evil.csv`,
+            dumpUri: persisted.dumpUri,
+          },
+        },
+      }),
+    );
+
+    const { rebuildAllCsvExports } = await import("./catalogueStore");
+    const rewritten = await rebuildAllCsvExports();
+    expect(rewritten).toBe(1);
+
+    expect(fsMock.files.has(csvUri)).toBe(true);
+    expect(fsMock.files.has(`${EXPORTS_DIR}../dumps/evil.csv`)).toBe(false);
+
+    const manifestRaw = fsMock.files.get(MANIFEST_URI) ?? "";
+    const manifest = JSON.parse(manifestRaw) as {
+      catalogues: Record<string, { csvUri?: string }>;
+    };
+    expect(manifest.catalogues[dump.catalogueId]?.csvUri).toBe(csvUri);
   });
 });
