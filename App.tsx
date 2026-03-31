@@ -27,19 +27,22 @@ function AppShell({
   activeTab: TabKey;
   onTabChange: (tab: TabKey) => void;
 }): React.ReactElement {
-  const { selectedDump } = useCatalogues();
+  const { selectedDump, setSelectedDump } = useCatalogues();
   const { selectedImport, setSelectedImport } = useImports();
   const { busyLabel, errorText, statusMessage, clearFeedback, setError } = useFeedback();
   const { settingsLoadError } = useSettings();
 
   const handleTabChange = React.useCallback(
     (tab: TabKey) => {
+      if (tab !== "catalogues") {
+        setSelectedDump(null);
+      }
       if (tab !== "imports") {
         setSelectedImport(null);
       }
       onTabChange(tab);
     },
-    [onTabChange, setSelectedImport],
+    [onTabChange, setSelectedDump, setSelectedImport],
   );
 
   React.useEffect(() => {
