@@ -16,7 +16,7 @@ vi.mock("expo-file-system/legacy", () => ({
   ...fsMock,
 }));
 
-import { __test__, parseImportFile } from "./importParser";
+import { normalizeDigitsCell, parseImportFile } from "./importParser";
 
 describe("importParser", () => {
   beforeEach(() => {
@@ -105,6 +105,8 @@ describe("importParser", () => {
       const values = [
         "1e3",
         "1E3",
+        ".5e3",
+        "1.e3",
         "+1.2e5",
         "-1.2e5",
         "1.2E+5",
@@ -112,14 +114,14 @@ describe("importParser", () => {
         "6.001E+12",
       ];
       for (const value of values) {
-        expect(() => __test__.normalizeDigitsCell(value)).toThrow(/scientific notation/i);
+        expect(() => normalizeDigitsCell(value)).toThrow(/scientific notation/i);
       }
     });
 
     it("does not reject values that merely contain an exponent-looking substring", () => {
-      expect(__test__.normalizeDigitsCell("cheese12")).toBe("12");
-      expect(__test__.normalizeDigitsCell("SKUe12")).toBe("12");
-      expect(__test__.normalizeDigitsCell("barcode123")).toBe("123");
+      expect(normalizeDigitsCell("cheese12")).toBe("12");
+      expect(normalizeDigitsCell("SKUe12")).toBe("12");
+      expect(normalizeDigitsCell("barcode123")).toBe("123");
     });
   });
 

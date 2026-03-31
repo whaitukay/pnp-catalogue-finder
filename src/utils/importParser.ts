@@ -6,6 +6,8 @@ import type { ImportedCatalogue, ImportedItem } from "../types";
 
 const BASE_PRODUCT_LENGTH = 18;
 
+const SCIENTIFIC_NOTATION_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+$/;
+
 function stripFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
   if (lastDot <= 0) {
@@ -14,13 +16,13 @@ function stripFileExtension(filename: string): string {
   return filename.slice(0, lastDot);
 }
 
-function normalizeDigitsCell(value: unknown): string {
+export function normalizeDigitsCell(value: unknown): string {
   const text = String(value ?? "").trim();
   if (!text) {
     return "";
   }
 
-  if (/^[+-]?\d+(?:\.\d+)?[eE][+-]?\d+$/.test(text)) {
+  if (SCIENTIFIC_NOTATION_PATTERN.test(text)) {
     throw new Error(
       "Import contains values in scientific notation (Excel numeric format). " +
         "Format the Base Product/Barcode columns as text and re-export the file.",
@@ -30,10 +32,6 @@ function normalizeDigitsCell(value: unknown): string {
   const cleaned = text.replace(/\.0$/, "");
   return cleaned.replace(/\D+/g, "");
 }
-
-export const __test__ = {
-  normalizeDigitsCell,
-};
 
 function normalizeBaseProduct(value: unknown): string {
   const digits = normalizeDigitsCell(value);
