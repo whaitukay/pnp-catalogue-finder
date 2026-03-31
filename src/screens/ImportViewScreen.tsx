@@ -45,7 +45,7 @@ export function ImportViewScreen(): React.ReactElement | null {
 
   React.useEffect(() => {
     setImportPage(0);
-  }, [filteredImportItems.length, importSearch]);
+  }, [importSearch]);
 
   if (!selectedImport) {
     return null;

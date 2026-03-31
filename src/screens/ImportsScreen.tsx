@@ -104,7 +104,7 @@ export function ImportsScreen(): React.ReactElement {
       <PaginationControls
         onPageChange={setImportsPage}
         page={importsPage}
-        pageSize={8}
+        pageSize={IMPORTS_PAGE_SIZE}
         totalItems={importsList.length}
       />
     </ScrollView>
