@@ -1,31 +1,77 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
+import { useFeedback, useSettings } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
 import { EXPORT_FIELD_OPTIONS } from "../types";
 import type { ExportFieldKey } from "../types";
 
-type SettingsScreenProps = {
-  storeCode: string;
-  hideExpiredCatalogues: boolean;
-  exportFields: ExportFieldKey[];
-  settingsDirty: boolean;
-  onStoreCodeChange: (value: string) => void;
-  onHideExpiredChange: (value: boolean) => void;
-  onToggleExportField: (field: ExportFieldKey) => void;
-  onSaveSettings: () => void;
-};
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return String(error ?? "Unknown error");
+}
 
-export function SettingsScreen({
-  storeCode,
-  hideExpiredCatalogues,
-  exportFields,
-  settingsDirty,
-  onStoreCodeChange,
-  onHideExpiredChange,
-  onToggleExportField,
-  onSaveSettings,
-}: SettingsScreenProps): React.ReactElement {
+export function SettingsScreen(): React.ReactElement {
+  const {
+    storeCode,
+    hideExpiredCatalogues,
+    exportFields,
+    settingsDirty,
+    settingsLoading,
+    onStoreCodeChange,
+    onHideExpiredChange,
+    onToggleExportField,
+    saveAppSettings,
+  } = useSettings();
+  const { clearFeedback, setBusy, setError, setStatus } = useFeedback();
+
+  const handleSaveSettings = React.useCallback(async () => {
+    const wasDirty = settingsDirty;
+    setBusy("Saving settings...");
+    clearFeedback();
+
+    try {
+      const outcome = await saveAppSettings();
+      if (!wasDirty) {
+        setStatus("Settings already up to date.");
+      } else if (outcome.fieldsChanged) {
+        setStatus(
+          `Settings saved. Rebuilt ${outcome.rebuiltCount} CSV export(s).`,
+        );
+      } else {
+        setStatus("Settings saved.");
+      }
+    } catch (error) {
+      setError(errorMessage(error));
+    } finally {
+      setBusy("");
+    }
+  }, [clearFeedback, saveAppSettings, setBusy, setError, setStatus, settingsDirty]);
+
+  if (settingsLoading) {
+    return (
+      <ScrollView contentContainerStyle={sharedStyles.content}>
+        <View style={sharedStyles.card}>
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={BRAND.blue} />
+            <Text style={sharedStyles.bodyText}>Loading settings...</Text>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
       <View style={sharedStyles.card}>
@@ -93,7 +139,7 @@ export function SettingsScreen({
         </View>
       </View>
 
-      <Pressable onPress={onSaveSettings} style={sharedStyles.primaryButton}>
+      <Pressable onPress={handleSaveSettings} style={sharedStyles.primaryButton}>
         <Text style={sharedStyles.primaryButtonText}>
           {settingsDirty ? "Save settings" : "Rebuild CSVs"}
         </Text>
@@ -116,6 +162,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     color: BRAND.ink,
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   fieldList: {
     gap: 10,

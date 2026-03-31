@@ -10,37 +10,56 @@ import {
 
 import { BarcodeImage } from "../components/BarcodeImage";
 import { PaginationControls } from "../components/PaginationControls";
+import { useImports } from "../hooks";
 import { sharedStyles } from "../theme";
-import type { ImportedCatalogue, ImportedItem } from "../types";
+import type { ImportedItem } from "../types";
 import { normalizeBarcodeForRendering } from "../utils/barcodes";
+import { paginate } from "../utils/catalogueUi";
+import { importItemMatchesSearch } from "../utils/importsUi";
 
-type ImportViewScreenProps = {
-  selectedImport: ImportedCatalogue;
-  importSearch: string;
-  filteredImportItems: ImportedItem[];
-  pagedImportItems: ImportedItem[];
-  importPage: number;
-  pageSize: number;
-  onBack: () => void;
-  onImportSearchChange: (value: string) => void;
-  onImportPageChange: (nextPage: number) => void;
-};
+const IMPORT_ITEMS_PAGE_SIZE = 24;
 
-export function ImportViewScreen({
-  selectedImport,
-  importSearch,
-  filteredImportItems,
-  pagedImportItems,
-  importPage,
-  pageSize,
-  onBack,
-  onImportSearchChange,
-  onImportPageChange,
-}: ImportViewScreenProps): React.ReactElement {
+export function ImportViewScreen(): React.ReactElement | null {
+  const { selectedImport, setSelectedImport } = useImports();
+  const [importSearch, setImportSearch] = React.useState("");
+  const [importPage, setImportPage] = React.useState(0);
+
+  React.useEffect(() => {
+    setImportSearch("");
+    setImportPage(0);
+  }, [selectedImport?.id]);
+
+  const filteredImportItems = React.useMemo(() => {
+    if (!selectedImport) {
+      return [];
+    }
+
+    return selectedImport.items.filter((item) =>
+      importItemMatchesSearch(item, importSearch),
+    );
+  }, [importSearch, selectedImport]);
+
+  const pagedImportItems = React.useMemo(() => {
+    return paginate(filteredImportItems, importPage, IMPORT_ITEMS_PAGE_SIZE);
+  }, [filteredImportItems, importPage]);
+
+  React.useEffect(() => {
+    setImportPage(0);
+  }, [importSearch]);
+
+  if (!selectedImport) {
+    return null;
+  }
+
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
       <View style={sharedStyles.buttonRow}>
-        <Pressable onPress={onBack} style={sharedStyles.secondaryButton}>
+        <Pressable
+          onPress={() => {
+            setSelectedImport(null);
+          }}
+          style={sharedStyles.secondaryButton}
+        >
           <Text style={sharedStyles.secondaryButtonText}>Back to imports</Text>
         </Pressable>
       </View>
@@ -66,7 +85,7 @@ export function ImportViewScreen({
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
-          onChangeText={onImportSearchChange}
+          onChangeText={setImportSearch}
           style={sharedStyles.input}
           value={importSearch}
         />
@@ -86,9 +105,9 @@ export function ImportViewScreen({
       )}
 
       <PaginationControls
-        onPageChange={onImportPageChange}
+        onPageChange={setImportPage}
         page={importPage}
-        pageSize={pageSize}
+        pageSize={IMPORT_ITEMS_PAGE_SIZE}
         totalItems={filteredImportItems.length}
       />
     </ScrollView>
