@@ -10,13 +10,15 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { StatusBanner } from "./src/components";
-import { AppProviders, useCatalogues, useFeedback, useSettings } from "./src/hooks";
+import { AppProviders, useCatalogues, useFeedback, useImports, useSettings } from "./src/hooks";
 import { CataloguesScreen } from "./src/screens/CataloguesScreen";
 import { DumpsScreen } from "./src/screens/DumpsScreen";
+import { ImportViewScreen } from "./src/screens/ImportViewScreen";
+import { ImportsScreen } from "./src/screens/ImportsScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { BRAND } from "./src/theme";
 
-type TabKey = "catalogues" | "settings";
+type TabKey = "catalogues" | "imports" | "settings";
 
 function AppShell({
   activeTab,
@@ -26,8 +28,19 @@ function AppShell({
   onTabChange: (tab: TabKey) => void;
 }): React.ReactElement {
   const { selectedDump } = useCatalogues();
+  const { selectedImport, setSelectedImport } = useImports();
   const { busyLabel, errorText, statusMessage, clearFeedback, setError } = useFeedback();
   const { settingsLoadError } = useSettings();
+
+  const handleTabChange = React.useCallback(
+    (tab: TabKey) => {
+      if (tab !== "imports") {
+        setSelectedImport(null);
+      }
+      onTabChange(tab);
+    },
+    [onTabChange, setSelectedImport],
+  );
 
   React.useEffect(() => {
     if (!settingsLoadError) {
@@ -46,7 +59,7 @@ function AppShell({
 
       <View style={styles.tabRow}>
         <Pressable
-          onPress={() => onTabChange("catalogues")}
+          onPress={() => handleTabChange("catalogues")}
           style={[
             styles.tabButton,
             activeTab === "catalogues" && styles.tabButtonActive,
@@ -62,7 +75,20 @@ function AppShell({
           </Text>
         </Pressable>
         <Pressable
-          onPress={() => onTabChange("settings")}
+          onPress={() => handleTabChange("imports")}
+          style={[styles.tabButton, activeTab === "imports" && styles.tabButtonActive]}
+        >
+          <Text
+            style={[
+              styles.tabButtonText,
+              activeTab === "imports" && styles.tabButtonTextActive,
+            ]}
+          >
+            Imports
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => handleTabChange("settings")}
           style={[styles.tabButton, activeTab === "settings" && styles.tabButtonActive]}
         >
           <Text
@@ -92,6 +118,13 @@ function AppShell({
           />
         ) : (
           <CataloguesScreen />
+        )
+      ) : null}
+      {activeTab === "imports" ? (
+        selectedImport ? (
+          <ImportViewScreen />
+        ) : (
+          <ImportsScreen />
         )
       ) : null}
       {activeTab === "settings" ? <SettingsScreen /> : null}

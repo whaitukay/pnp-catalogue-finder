@@ -2,29 +2,24 @@ import React from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { PaginationControls } from "../components/PaginationControls";
+import { useImports } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
-import type { ImportedCatalogueSummary } from "../types";
-import { formatTimestamp } from "../utils/catalogueUi";
+import { formatTimestamp, paginate } from "../utils/catalogueUi";
 
-type ImportsScreenProps = {
-  importsList: ImportedCatalogueSummary[];
-  pagedImportsList: ImportedCatalogueSummary[];
-  importsPage: number;
-  onImport: () => void;
-  onDelete: (id: string) => void;
-  onOpen: (id: string) => void;
-  onImportsPageChange: (nextPage: number) => void;
-};
+const IMPORTS_PAGE_SIZE = 8;
 
-export function ImportsScreen({
-  importsList,
-  pagedImportsList,
-  importsPage,
-  onImport,
-  onDelete,
-  onOpen,
-  onImportsPageChange,
-}: ImportsScreenProps): React.ReactElement {
+export function ImportsScreen(): React.ReactElement {
+  const { importsList, importFile, openImport, removeImport } = useImports();
+  const [importsPage, setImportsPage] = React.useState(0);
+
+  React.useEffect(() => {
+    setImportsPage(0);
+  }, [importsList.length]);
+
+  const pagedImportsList = React.useMemo(() => {
+    return paginate(importsList, importsPage, IMPORTS_PAGE_SIZE);
+  }, [importsList, importsPage]);
+
   return (
     <ScrollView contentContainerStyle={sharedStyles.content}>
       <View style={sharedStyles.card}>
@@ -33,7 +28,12 @@ export function ImportsScreen({
           Import ad-hoc CSV/XLSX files containing base product codes and optional barcodes.
         </Text>
         <View style={sharedStyles.buttonRow}>
-          <Pressable onPress={onImport} style={sharedStyles.primaryButton}>
+          <Pressable
+            onPress={() => {
+              void importFile();
+            }}
+            style={sharedStyles.primaryButton}
+          >
             <Text style={sharedStyles.primaryButtonText}>Import file</Text>
           </Pressable>
         </View>
@@ -64,7 +64,9 @@ export function ImportsScreen({
             </View>
             <View style={sharedStyles.buttonRow}>
               <Pressable
-                onPress={() => onOpen(item.id)}
+                onPress={() => {
+                  void openImport(item.id);
+                }}
                 style={sharedStyles.secondaryButton}
               >
                 <Text style={sharedStyles.secondaryButtonText}>View</Text>
@@ -79,7 +81,9 @@ export function ImportsScreen({
                       {
                         text: "Delete",
                         style: "destructive",
-                        onPress: () => onDelete(item.id),
+                        onPress: () => {
+                          void removeImport(item.id);
+                        },
                       },
                     ],
                   );
@@ -98,7 +102,7 @@ export function ImportsScreen({
       )}
 
       <PaginationControls
-        onPageChange={onImportsPageChange}
+        onPageChange={setImportsPage}
         page={importsPage}
         pageSize={8}
         totalItems={importsList.length}

@@ -2,6 +2,7 @@ import React from "react";
 
 import { CataloguesProvider } from "./useCataloguesContext";
 import { FeedbackProvider } from "./useFeedbackContext";
+import { ImportsProvider } from "./useImportsContext";
 import { SettingsProvider } from "./useSettingsContext";
 
 export function AppProviders({
@@ -12,7 +13,9 @@ export function AppProviders({
   return (
     <SettingsProvider>
       <FeedbackProvider>
-        <CataloguesProvider>{children}</CataloguesProvider>
+        <CataloguesProvider>
+          <ImportsProvider>{children}</ImportsProvider>
+        </CataloguesProvider>
       </FeedbackProvider>
     </SettingsProvider>
   );
