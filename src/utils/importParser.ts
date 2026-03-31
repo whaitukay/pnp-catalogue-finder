@@ -20,7 +20,7 @@ function normalizeDigitsCell(value: unknown): string {
     return "";
   }
 
-  if (/[eE][+-]?\d+/.test(text)) {
+  if (/^[+-]?\d+(?:\.\d+)?[eE][+-]?\d+$/.test(text)) {
     throw new Error(
       "Import contains values in scientific notation (Excel numeric format). " +
         "Format the Base Product/Barcode columns as text and re-export the file.",
@@ -30,6 +30,10 @@ function normalizeDigitsCell(value: unknown): string {
   const cleaned = text.replace(/\.0$/, "");
   return cleaned.replace(/\D+/g, "");
 }
+
+export const __test__ = {
+  normalizeDigitsCell,
+};
 
 function normalizeBaseProduct(value: unknown): string {
   const digits = normalizeDigitsCell(value);
