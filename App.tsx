@@ -1,14 +1,13 @@
 import React from "react";
 import {
   Pressable,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   useColorScheme,
   View,
 } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { StatusBanner } from "./src/components";
 import { AppProviders, useCatalogues, useFeedback, useSettings } from "./src/hooks";
@@ -104,11 +103,17 @@ export default function App(): React.ReactElement {
   const [activeTab, setActiveTab] = React.useState<TabKey>("catalogues");
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const safeAreaInsetBackground = isDark ? BRAND.backgroundDark : BRAND.background;
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <SafeAreaView style={[styles.safeArea, isDark ? styles.safeAreaDark : null]}>
+      <SafeAreaView
+        style={[styles.safeArea, isDark ? styles.safeAreaDark : null]}
+      >
+        <StatusBar
+          backgroundColor={safeAreaInsetBackground}
+          barStyle={isDark ? "light-content" : "dark-content"}
+        />
         <AppProviders>
           <AppShell activeTab={activeTab} onTabChange={setActiveTab} />
         </AppProviders>
