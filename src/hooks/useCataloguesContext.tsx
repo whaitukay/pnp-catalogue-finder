@@ -13,7 +13,6 @@ import {
   saveDump,
 } from "../services/catalogueStore";
 import {
-  catalogueIdForTarget,
   discoverCatalogueTargets,
   scanCatalogue,
   syncAllMissingCatalogues,
@@ -142,17 +141,6 @@ export function CataloguesProvider({
           discovered = await discoverCatalogueTargets();
         } catch (error) {
           discoveryError = errorMessage(error);
-        }
-
-        const cachedById = new Map(
-          cached.map((entry) => [entry.catalogueId, entry] as const),
-        );
-        for (const target of discovered) {
-          const catalogueId = catalogueIdForTarget(targetStoreCode, target);
-          const cachedEntry = cachedById.get(catalogueId);
-          if (cachedEntry?.catalogueStartDate || cachedEntry?.catalogueEndDate) {
-            continue;
-          }
         }
 
         setCachedCatalogues(cached);
