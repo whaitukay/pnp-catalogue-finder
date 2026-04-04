@@ -135,6 +135,7 @@ export function SettingsScreen(): React.ReactElement {
       </View>
 
       <Pressable
+        accessibilityState={{ disabled: !settingsDirty }}
         disabled={!settingsDirty}
         onPress={handleSaveSettings}
         style={[sharedStyles.primaryButton, !settingsDirty && styles.primaryButtonDisabled]}

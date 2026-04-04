@@ -39,6 +39,7 @@ const MANIFEST_URI = "file:///mock-docs/catalogue-helper/cache/catalogue-manifes
 describe("catalogueStore CSV dump", () => {
   beforeEach(() => {
     fsMock.files.clear();
+    vi.clearAllMocks();
   });
 
   it("defers csv writing until ensureCsvForDump is called", async () => {
@@ -253,7 +254,7 @@ describe("catalogueStore CSV dump", () => {
     const manifest = JSON.parse(manifestRaw) as {
       catalogues: Record<string, { csvUri?: string }>;
     };
-    expect(manifest.catalogues[dump.catalogueId]?.csvUri).toBe("");
+    expect(manifest.catalogues[dump.catalogueId]).not.toHaveProperty("csvUri");
   });
 
   it("guards invalidateAllCsvExports against traversal csvUri overrides", async () => {
@@ -317,6 +318,6 @@ describe("catalogueStore CSV dump", () => {
     const manifest = JSON.parse(manifestRaw) as {
       catalogues: Record<string, { csvUri?: string }>;
     };
-    expect(manifest.catalogues[dump.catalogueId]?.csvUri).toBe("");
+    expect(manifest.catalogues[dump.catalogueId]).not.toHaveProperty("csvUri");
   });
 });

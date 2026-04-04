@@ -188,7 +188,7 @@ export type ManifestEntry = {
   catalogueStartDate: number | null;
   catalogueEndDate: number | null;
   expired: boolean;
-  csvUri: string;
+  csvUri?: string;
   dumpUri: string;
 };
 
@@ -210,7 +210,7 @@ export type CatalogueListing = {
   catalogueStartDate: number | null;
   catalogueEndDate: number | null;
   expired: boolean;
-  csvUri: string;
+  csvUri?: string;
   dumpUri: string;
 };
 

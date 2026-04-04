@@ -135,7 +135,11 @@ export function SettingsProvider({
 
     let invalidatedCount = 0;
     if (fieldsChanged) {
-      invalidatedCount = await invalidateAllCsvExports();
+      try {
+        invalidatedCount = await invalidateAllCsvExports();
+      } catch (error) {
+        console.warn("Failed to invalidate cached CSV exports", error);
+      }
     }
 
     setSettingsSaveToken((current) => current + 1);

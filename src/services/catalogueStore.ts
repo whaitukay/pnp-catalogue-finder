@@ -346,7 +346,7 @@ function normalizeManifestEntry(entry: unknown): ManifestEntry {
     catalogueStartDate,
     catalogueEndDate,
     expired: isExpired(catalogueEndDate),
-    csvUri: normalizeText(raw?.csvUri),
+    csvUri: normalizeNullableText(raw?.csvUri) ?? undefined,
     dumpUri: normalizeText(raw?.dumpUri),
   };
 }
@@ -594,12 +594,16 @@ export async function invalidateAllCsvExports(): Promise<number> {
 
     const safeEntryCsvUri = getSafeExportUri(entry.csvUri);
     if (safeEntryCsvUri) {
-      await FileSystem.deleteAsync(safeEntryCsvUri, { idempotent: true });
+      try {
+        await FileSystem.deleteAsync(safeEntryCsvUri, { idempotent: true });
+      } catch {
+        // Best-effort delete: clearing the manifest is the essential part.
+      }
     }
 
     manifest.catalogues[catalogueId] = {
       ...entry,
-      csvUri: "",
+      csvUri: undefined,
     };
     invalidatedCount += 1;
   }
