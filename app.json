@@ -2,7 +2,7 @@
   "expo": {
     "name": "Catalogue Finder",
     "slug": "catalogue-finder-mobile",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "orientation": "portrait",
     "platforms": [
       "android"
@@ -16,7 +16,7 @@
         "foregroundImage": "./assets/images/app-splash-icon.png",
         "backgroundColor": "#232323"
       },
-      "versionCode": 4
+      "versionCode": 5
     },
     "plugins": [
       "expo-mail-composer",
