@@ -6,7 +6,7 @@ import { BRAND } from "../theme";
 type CatalogueThumbnailProps = {
   uri: string | null;
   size: number;
-  onPress: () => void;
+  onPress?: () => void;
   accessibilityLabel?: string;
   accessibilityHint?: string;
 };
@@ -41,6 +41,23 @@ export function CatalogueThumbnail({
     return <View style={baseStyle} />;
   }
 
+  const image = (
+    <Image
+      source={{ uri, cache: "force-cache" }}
+      style={baseStyle}
+      resizeMode="cover"
+      accessibilityRole={onPress ? undefined : "image"}
+      accessibilityLabel={onPress ? undefined : accessibilityLabel}
+      onError={() => {
+        setLoadFailed(true);
+      }}
+    />
+  );
+
+  if (!onPress) {
+    return image;
+  }
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -48,14 +65,7 @@ export function CatalogueThumbnail({
       accessibilityHint={accessibilityHint}
       onPress={onPress}
     >
-      <Image
-        source={{ uri, cache: "force-cache" }}
-        style={baseStyle}
-        resizeMode="cover"
-        onError={() => {
-          setLoadFailed(true);
-        }}
-      />
+      {image}
     </Pressable>
   );
 }

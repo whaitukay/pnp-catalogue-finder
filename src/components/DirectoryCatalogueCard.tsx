@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { sharedStyles } from "../theme";
@@ -10,7 +10,6 @@ import type { DirectoryItem } from "../utils/catalogueUi";
 import { CatalogueThumbnail } from "./CatalogueThumbnail";
 import { ProgressButton } from "./ProgressButton";
 import { StatusBadge } from "./StatusBadge";
-import { ZoomableImage } from "./ZoomableImage";
 
 type DirectoryCatalogueCardProps = {
   item: DirectoryItem;
@@ -47,14 +46,9 @@ function DirectoryCatalogueCardBase({
     item.catalogueStartDate,
     item.catalogueEndDate,
   );
-  const [previewVisible, setPreviewVisible] = useState(false);
 
   const hasThumbnailUrl = Boolean(item.catalogueImageUrl);
   const pullButtonLabel = item.fromCache ? "Refresh" : "Download";
-
-  useEffect(() => {
-    setPreviewVisible(false);
-  }, [item.catalogueImageUrl]);
 
   return (
     <View style={sharedStyles.card}>
@@ -62,21 +56,11 @@ function DirectoryCatalogueCardBase({
         <View style={sharedStyles.cardHeaderText}>
           <View style={styles.titleRow}>
             {hasThumbnailUrl ? (
-              <>
-                <CatalogueThumbnail
-                  uri={item.catalogueImageUrl}
-                  size={36}
-                  onPress={() => setPreviewVisible(true)}
-                  accessibilityLabel={`${item.label} thumbnail`}
-                  accessibilityHint="Tap to open full screen preview"
-                />
-                <ZoomableImage
-                  source={{ uri: item.catalogueImageUrl!, cache: "force-cache" }}
-                  visible={previewVisible}
-                  onClose={() => setPreviewVisible(false)}
-                  accessibilityLabel={`${item.label} thumbnail preview`}
-                />
-              </>
+              <CatalogueThumbnail
+                uri={item.catalogueImageUrl}
+                size={36}
+                accessibilityLabel={`${item.label} thumbnail`}
+              />
             ) : null}
             <Text style={[sharedStyles.cardTitle, styles.titleText]}>{item.label}</Text>
           </View>
