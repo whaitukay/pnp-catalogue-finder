@@ -39,6 +39,33 @@ const PRODUCT_CACHE_URI = `${CACHE_DIR}product-details.json`;
 const MANIFEST_URI = `${CACHE_DIR}catalogue-manifests.json`;
 const IMPORTS_MANIFEST_URI = `${CACHE_DIR}imports-manifest.json`;
 
+function getSafeExportUri(value: unknown): string | undefined {
+  const normalizedUri = normalizeNullableText(value);
+  if (!normalizedUri || !normalizedUri.startsWith(EXPORTS_DIR)) {
+    return undefined;
+  }
+
+  const relativeUri = normalizedUri.slice(EXPORTS_DIR.length);
+
+  if (
+    !relativeUri ||
+    relativeUri.includes("%") ||
+    relativeUri.includes("?") ||
+    relativeUri.includes("#") ||
+    relativeUri.includes("\\")
+  ) {
+    return undefined;
+  }
+
+  const segments = relativeUri.split("/");
+
+  if (segments.some((segment) => !segment || segment === "..")) {
+    return undefined;
+  }
+
+  return normalizedUri;
+}
+
 export const DEFAULT_SETTINGS: AppSettings = {
   storeCode: "WC21",
   hideExpiredCatalogues: false,
@@ -319,7 +346,7 @@ function normalizeManifestEntry(entry: unknown): ManifestEntry {
     catalogueStartDate,
     catalogueEndDate,
     expired: isExpired(catalogueEndDate),
-    csvUri: normalizeText(raw?.csvUri),
+    csvUri: normalizeNullableText(raw?.csvUri) ?? undefined,
     dumpUri: normalizeText(raw?.dumpUri),
   };
 }
@@ -525,14 +552,9 @@ export async function saveDump(
 export async function ensureCsvForDump(dumpUri: string, csvUri?: string): Promise<string> {
   await ensureStorage();
 
-  const normalizedCsvUri = normalizeNullableText(csvUri);
-  const safeCsvUri =
-    normalizedCsvUri && normalizedCsvUri.startsWith(EXPORTS_DIR)
-      ? normalizedCsvUri
-      : undefined;
-
-  if (safeCsvUri && (await fileExists(safeCsvUri))) {
-    return safeCsvUri;
+  const safeCsvUriHint = getSafeExportUri(csvUri);
+  if (safeCsvUriHint && (await fileExists(safeCsvUriHint))) {
+    return safeCsvUriHint;
   }
 
   const dump = await loadDumpByUri(dumpUri);
@@ -540,14 +562,14 @@ export async function ensureCsvForDump(dumpUri: string, csvUri?: string): Promis
     throw new Error("That catalogue dump is no longer available.");
   }
 
-  const normalizedDumpCsvUri = normalizeNullableText(dump.csvUri);
-  const safeDumpCsvUri =
-    normalizedDumpCsvUri && normalizedDumpCsvUri.startsWith(EXPORTS_DIR)
-      ? normalizedDumpCsvUri
-      : undefined;
+  const safeDumpCsvUri = getSafeExportUri(dump.csvUri);
+  if (safeDumpCsvUri && (await fileExists(safeDumpCsvUri))) {
+    return safeDumpCsvUri;
+  }
+
   const { csvUri: resolvedCsvUri } = buildDumpPaths({
     ...dump,
-    csvUri: safeCsvUri ?? safeDumpCsvUri,
+    csvUri: safeCsvUriHint ?? safeDumpCsvUri,
   });
 
   if (await fileExists(resolvedCsvUri)) {
@@ -559,45 +581,35 @@ export async function ensureCsvForDump(dumpUri: string, csvUri?: string): Promis
   return resolvedCsvUri;
 }
 
-export async function rebuildAllCsvExports(): Promise<number> {
+export async function invalidateAllCsvExports(): Promise<number> {
   await ensureStorage();
 
   const manifest = await loadManifestCache();
-  const settings = await loadSettings();
-  let rewrittenCount = 0;
+  let invalidatedCount = 0;
 
   for (const [catalogueId, entry] of Object.entries(manifest.catalogues)) {
-    if (!entry.dumpUri) {
+    if (!entry.csvUri) {
       continue;
     }
 
-    const dump = await loadDumpByUri(entry.dumpUri);
-    if (!dump) {
-      continue;
-    }
-
-    const persisted = await saveDump({ ...dump, csvUri: entry.csvUri || dump.csvUri });
-    const exportCsvUri = persisted.csvUri || entry.csvUri;
-
-    if (exportCsvUri) {
-      await writeCsvForDump(persisted.dump, exportCsvUri, settings.exportFields);
+    const safeEntryCsvUri = getSafeExportUri(entry.csvUri);
+    if (safeEntryCsvUri) {
+      try {
+        await FileSystem.deleteAsync(safeEntryCsvUri, { idempotent: true });
+      } catch {
+        // Best-effort delete: clearing the manifest is the essential part.
+      }
     }
 
     manifest.catalogues[catalogueId] = {
       ...entry,
-      ...(exportCsvUri ? { csvUri: exportCsvUri } : {}),
-      dumpUri: persisted.dumpUri,
-      expired: persisted.dump.expired,
-      itemCount: persisted.dump.itemCount,
-      barcodeCount: persisted.dump.barcodeCount,
-      exportedAt: persisted.dump.exportedAt,
+      csvUri: undefined,
     };
-
-    rewrittenCount += 1;
+    invalidatedCount += 1;
   }
 
   await saveManifestCache(manifest);
-  return rewrittenCount;
+  return invalidatedCount;
 }
 
 export async function loadDumpByUri(uri: string): Promise<CatalogueDump | null> {

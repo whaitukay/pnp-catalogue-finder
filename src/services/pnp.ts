@@ -898,7 +898,7 @@ async function exportTarget(
     catalogueStartDate: persisted.dump.catalogueStartDate,
     catalogueEndDate: persisted.dump.catalogueEndDate,
     expired: isExpired(effectiveEndDate),
-    csvUri: persisted.csvUri || existingEntry?.csvUri || "",
+    csvUri: persisted.csvUri || existingEntry?.csvUri,
     dumpUri: persisted.dumpUri,
   };
   await saveManifestCache(manifest);
