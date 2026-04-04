@@ -145,7 +145,7 @@ export function buildDirectoryItems(
       catalogueStartDate,
       catalogueEndDate,
       expired: getCatalogueTimingStatus(catalogueStartDate, catalogueEndDate) === "expired",
-      csvUri: cached?.csvUri || "",
+      csvUri: cached?.csvUri,
       dumpUri: cached?.dumpUri || "",
       pullSource: target.sourceUrl || target.query || target.slug || target.label,
     });
