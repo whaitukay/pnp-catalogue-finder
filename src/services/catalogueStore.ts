@@ -465,6 +465,7 @@ function buildCsv(dump: CatalogueDump, fields: ExportFieldKey[]): string {
     ...dump.rows.map((row) =>
       selectedFields
         .map((field) => CSV_FIELD_DEFINITIONS[field].getValue(row, dump))
+        .map(sanitizeExcelCellValue)
         .map(csvCell)
         .join(","),
     ),
@@ -482,11 +483,27 @@ async function writeCsvForDump(
   });
 }
 
+function sanitizeExcelCellValue(
+  value: string | number | boolean,
+): string | number | boolean {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  if (/^\s*[=+\-@]/.test(value)) {
+    return `'${value}`;
+  }
+
+  return value;
+}
+
 function buildXlsx(dump: CatalogueDump, fields: ExportFieldKey[]): XLSX.WorkBook {
   const selectedFields = fields.length > 0 ? fields : DEFAULT_EXPORT_FIELDS;
   const header = selectedFields.map((field) => CSV_FIELD_DEFINITIONS[field].header);
   const rows = dump.rows.map((row) =>
-    selectedFields.map((field) => CSV_FIELD_DEFINITIONS[field].getValue(row, dump)),
+    selectedFields.map((field) =>
+      sanitizeExcelCellValue(CSV_FIELD_DEFINITIONS[field].getValue(row, dump)),
+    ),
   );
 
   const workbook = XLSX.utils.book_new();
