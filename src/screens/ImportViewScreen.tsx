@@ -10,7 +10,7 @@ import {
 
 import { BarcodeImage } from "../components/BarcodeImage";
 import { PaginationControls } from "../components/PaginationControls";
-import { useImports, useReduceMotionEnabled } from "../hooks";
+import { useImports, usePaginatedScroll } from "../hooks";
 import { sharedStyles } from "../theme";
 import type { ImportedItem } from "../types";
 import { normalizeBarcodeForRendering } from "../utils/barcodes";
@@ -23,8 +23,7 @@ export function ImportViewScreen(): React.ReactElement | null {
   const { selectedImport, setSelectedImport } = useImports();
   const [importSearch, setImportSearch] = React.useState("");
   const [importPage, setImportPage] = React.useState(0);
-  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
-  const reduceMotionEnabled = useReduceMotionEnabled();
+  const { scrollRef, handlePageChange } = usePaginatedScroll(setImportPage);
 
   React.useEffect(() => {
     setImportSearch("");
@@ -48,11 +47,6 @@ export function ImportViewScreen(): React.ReactElement | null {
   React.useEffect(() => {
     setImportPage(0);
   }, [importSearch]);
-
-  const handleImportPageChange = React.useCallback((nextPage: number) => {
-    setImportPage(nextPage);
-    scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotionEnabled });
-  }, [reduceMotionEnabled]);
 
   if (!selectedImport) {
     return null;
@@ -112,7 +106,7 @@ export function ImportViewScreen(): React.ReactElement | null {
       )}
 
       <PaginationControls
-        onPageChange={handleImportPageChange}
+        onPageChange={handlePageChange}
         page={importPage}
         pageSize={IMPORT_ITEMS_PAGE_SIZE}
         totalItems={filteredImportItems.length}

@@ -17,7 +17,7 @@ import type { LayoutAnimationConfig } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DumpRowCard, PaginationControls, StatusBadge } from "../components";
-import { useCatalogues, useReduceMotionEnabled } from "../hooks";
+import { useCatalogues, usePaginatedScroll } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
 import type { ProductRow } from "../types";
 import {
@@ -72,8 +72,11 @@ export function DumpsScreen({
   const insets = useSafeAreaInsets();
 
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
-  const reduceMotionEnabled = useReduceMotionEnabled();
-  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+  const {
+    scrollRef,
+    handlePageChange: handleDumpRowsPageChange,
+    reduceMotionEnabled,
+  } = usePaginatedScroll(setDumpRowsPage);
   const searchInputRef = React.useRef<React.ElementRef<typeof TextInput>>(null);
   const searchQueryRef = React.useRef(dumpSearch);
   const isAndroid = Platform.OS === "android";
@@ -125,14 +128,6 @@ export function DumpsScreen({
     animateLayout();
     handleDumpSearchChange("");
   }, [animateLayout, handleDumpSearchChange]);
-
-  const handleDumpRowsPageChange = React.useCallback(
-    (nextPage: number) => {
-      setDumpRowsPage(nextPage);
-      scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotionEnabled });
-    },
-    [reduceMotionEnabled],
-  );
 
   return (
     <KeyboardAvoidingView

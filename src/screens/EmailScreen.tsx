@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge } from "../components/StatusBadge";
-import { useReduceMotionEnabled } from "../hooks";
+import { usePaginatedScroll } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
 import type { ManifestEntry } from "../types";
 import {
@@ -47,16 +47,7 @@ export function EmailScreen({
   onEmailBodyChange,
   onSendEmail,
 }: EmailScreenProps): React.ReactElement {
-  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
-  const reduceMotionEnabled = useReduceMotionEnabled();
-
-  const handleEmailPageChange = React.useCallback(
-    (nextPage: number) => {
-      onEmailPageChange(nextPage);
-      scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotionEnabled });
-    },
-    [onEmailPageChange, reduceMotionEnabled],
-  );
+  const { scrollRef, handlePageChange } = usePaginatedScroll(onEmailPageChange);
 
   return (
     <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>
@@ -100,7 +91,7 @@ export function EmailScreen({
       )}
 
       <PaginationControls
-        onPageChange={handleEmailPageChange}
+        onPageChange={handlePageChange}
         page={emailPage}
         pageSize={8}
         totalItems={visibleCachedCatalogues.length}
