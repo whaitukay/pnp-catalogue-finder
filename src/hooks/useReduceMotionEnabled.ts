@@ -20,6 +20,7 @@ export function useReduceMotionEnabled(): boolean {
 
     const { isReduceMotionEnabled, addEventListener, removeEventListener } =
       AccessibilityInfo as AccessibilityInfoCompat;
+    const reduceMotionChangedEvent = "reduceMotionChanged" as const;
 
     const handleReduceMotionChanged = (value: boolean) => {
       if (!mounted) {
@@ -38,7 +39,7 @@ export function useReduceMotionEnabled(): boolean {
 
     if (typeof addEventListener === "function") {
       const maybeSubscription = addEventListener(
-        "reduceMotionChanged",
+        reduceMotionChangedEvent,
         handleReduceMotionChanged,
       );
 
@@ -46,7 +47,7 @@ export function useReduceMotionEnabled(): boolean {
         subscription = maybeSubscription as { remove: () => void };
       } else if (typeof removeEventListener === "function") {
         removeListener = () => {
-          removeEventListener("reduceMotionChanged", handleReduceMotionChanged);
+          removeEventListener(reduceMotionChangedEvent, handleReduceMotionChanged);
         };
       }
     }
