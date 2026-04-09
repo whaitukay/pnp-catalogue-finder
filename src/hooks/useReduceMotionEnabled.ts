@@ -8,11 +8,15 @@ export function useReduceMotionEnabled(): boolean {
     let mounted = true;
     let subscription: { remove: () => void } | undefined;
 
-    void AccessibilityInfo.isReduceMotionEnabled().then((value: boolean) => {
-      if (mounted) {
-        setReduceMotionEnabled(value);
-      }
-    });
+    void AccessibilityInfo.isReduceMotionEnabled()
+      .then((value: boolean) => {
+        if (mounted) {
+          setReduceMotionEnabled(value);
+        }
+      })
+      .catch(() => {
+        // Keep the default `true` behavior (animations disabled) if the setting can't be read.
+      });
 
     if (typeof AccessibilityInfo.addEventListener === "function") {
       subscription = AccessibilityInfo.addEventListener(
