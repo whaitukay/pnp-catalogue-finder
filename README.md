@@ -33,7 +33,29 @@ The app discovers catalogue categories on `pnp.co.za`, pulls the products for ea
 npm ci
 ```
 
-Note: `xlsx` is installed from the official SheetJS CDN tarball (`0.20.3`) rather than an npm semver range because the npm package is unmaintained and older versions have known security issues (prototype pollution in `<=0.19.2`, ReDoS in `<0.20.2`) when parsing crafted files (see https://linear.app/whaitukay/issue/WHA-34/resolve-prototype-pollution-in-sheetjs). This means `npm ci` requires access to `https://cdn.sheetjs.com` (mirror the tarball internally if you need offline installs).
+#### `xlsx` dependency (pinned)
+
+This project installs `xlsx` from the official SheetJS CDN tarball (`0.20.3`) rather
+than an npm semver range because the npm package is unmaintained.
+
+- Security context: older versions have known issues when parsing crafted files:
+  - Prototype pollution in `<=0.19.2` (CVE-2023-30533 / GHSA-4r6h-8v6p-xvw6).
+  - ReDoS in `<0.20.2` (CVE-2024-22363 / GHSA-5pgg-2g8v-p4x9).
+  - References: https://github.com/advisories/GHSA-4r6h-8v6p-xvw6, https://github.com/advisories/GHSA-5pgg-2g8v-p4x9,
+    internal context: [WHA-34](https://linear.app/whaitukay/issue/WHA-34/resolve-prototype-pollution-in-sheetjs)
+- Install requirement: `npm ci` needs access to `https://cdn.sheetjs.com`.
+  - For offline installs / locked-down CI, mirror the tarball internally and switch
+    the dependency to your internal URL (or a `file:` reference).
+
+**How to upgrade the pinned version**
+
+1. Update the `xlsx` URL in `package.json`.
+2. Run `npm i` to refresh `package-lock.json` (including the `integrity` hash).
+3. Run `npm ci` and `npm test`.
+
+If you're using this project long-term, consider periodically reviewing SheetJS CE
+releases + GitHub advisories since automated dependency updaters may not track a
+non-registry tarball.
 
 ### Run
 
