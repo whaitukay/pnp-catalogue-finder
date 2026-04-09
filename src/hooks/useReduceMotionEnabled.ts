@@ -15,11 +15,9 @@ export function useReduceMotionEnabled(): boolean {
 
   React.useEffect(() => {
     let mounted = true;
-    let subscription: { remove: () => void } | undefined;
-    let removeListener: (() => void) | undefined;
+    let cleanupListener: (() => void) | undefined;
 
-    const { isReduceMotionEnabled, addEventListener, removeEventListener } =
-      AccessibilityInfo as AccessibilityInfoCompat;
+    const accessibilityInfo = AccessibilityInfo as AccessibilityInfoCompat;
     const reduceMotionChangedEvent = "reduceMotionChanged" as const;
 
     const handleReduceMotionChanged = (value: boolean) => {
@@ -29,33 +27,44 @@ export function useReduceMotionEnabled(): boolean {
       setReduceMotionEnabled(value);
     };
 
-    if (typeof isReduceMotionEnabled === "function") {
-      void isReduceMotionEnabled()
+    if (typeof accessibilityInfo.isReduceMotionEnabled === "function") {
+      void accessibilityInfo
+        .isReduceMotionEnabled()
         .then(handleReduceMotionChanged)
         .catch(() => {
           // Keep the default `true` behavior (animations disabled) if the setting can't be read.
         });
     }
 
-    if (typeof addEventListener === "function") {
-      const maybeSubscription = addEventListener(
+    if (typeof accessibilityInfo.addEventListener === "function") {
+      const maybeSubscription = accessibilityInfo.addEventListener(
         reduceMotionChangedEvent,
         handleReduceMotionChanged,
       );
 
       if (maybeSubscription && typeof maybeSubscription.remove === "function") {
-        subscription = maybeSubscription as { remove: () => void };
-      } else if (typeof removeEventListener === "function") {
-        removeListener = () => {
-          removeEventListener(reduceMotionChangedEvent, handleReduceMotionChanged);
+        const subscription = maybeSubscription as { remove: () => void };
+        cleanupListener = () => {
+          subscription.remove();
         };
+      } else {
+        const removeEventListener = accessibilityInfo.removeEventListener;
+
+        if (typeof removeEventListener === "function") {
+          cleanupListener = () => {
+            removeEventListener.call(
+              accessibilityInfo,
+              reduceMotionChangedEvent,
+              handleReduceMotionChanged,
+            );
+          };
+        }
       }
     }
 
     return () => {
       mounted = false;
-      subscription?.remove();
-      removeListener?.();
+      cleanupListener?.();
     };
   }, []);
 
