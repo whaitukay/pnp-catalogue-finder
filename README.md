@@ -50,7 +50,8 @@ than an npm semver range because the npm package is unmaintained.
 **How to upgrade the pinned version**
 
 1. Update the `xlsx` URL in `package.json`.
-2. Run `npm i` to refresh `package-lock.json` (including the `integrity` hash).
+2. Run `npm install --package-lock-only` to refresh `package-lock.json` (including
+   the `integrity` hash).
 3. Run `npm ci` and `npm test`.
 
 If you're using this project long-term, consider periodically reviewing SheetJS CE
