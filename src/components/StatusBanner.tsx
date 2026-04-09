@@ -20,8 +20,23 @@ export function StatusBanner({
   onDismiss,
 }: StatusBannerProps): React.ReactElement | null {
   const onDismissRef = React.useRef(onDismiss);
+  const autoDismissTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   onDismissRef.current = onDismiss;
+
+  const clearAutoDismissTimeout = React.useCallback(() => {
+    if (!autoDismissTimeoutRef.current) {
+      return;
+    }
+
+    clearTimeout(autoDismissTimeoutRef.current);
+    autoDismissTimeoutRef.current = null;
+  }, []);
+
+  const handleDismiss = React.useCallback(() => {
+    clearAutoDismissTimeout();
+    onDismissRef.current();
+  }, [clearAutoDismissTimeout]);
 
   const isError = Boolean(errorText);
   const toastText = errorText || statusMessage;
@@ -31,17 +46,20 @@ export function StatusBanner({
       return;
     }
 
-    const timeout = setTimeout(
+    clearAutoDismissTimeout();
+
+    autoDismissTimeoutRef.current = setTimeout(
       () => {
+        autoDismissTimeoutRef.current = null;
         onDismissRef.current();
       },
       isError ? ERROR_AUTO_DISMISS_MS : STATUS_AUTO_DISMISS_MS,
     );
 
     return () => {
-      clearTimeout(timeout);
+      clearAutoDismissTimeout();
     };
-  }, [busyLabel, isError, toastText]);
+  }, [busyLabel, clearAutoDismissTimeout, isError, toastText]);
 
   if (busyLabel) {
     return (
@@ -56,7 +74,7 @@ export function StatusBanner({
     const accessibilityLabel = isError ? `Error: ${toastText}` : toastText;
     return (
       <Pressable
-        onPress={onDismiss}
+        onPress={handleDismiss}
         style={[styles.banner, isError ? styles.error : styles.success]}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
