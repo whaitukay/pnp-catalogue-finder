@@ -33,7 +33,7 @@ The app discovers catalogue categories on `pnp.co.za`, pulls the products for ea
 npm ci
 ```
 
-Note: `xlsx` is installed from the official SheetJS CDN tarball (`0.20.3`) rather than an npm semver range because the npm package is unmaintained and versions `<=0.19.2` are vulnerable to prototype pollution when parsing crafted files (see https://linear.app/whaitukay/issue/WHA-34/resolve-prototype-pollution-in-sheetjs). This means `npm ci` requires access to `https://cdn.sheetjs.com` (mirror the tarball internally if you need offline installs).
+Note: `xlsx` is installed from the official SheetJS CDN tarball (`0.20.3`) rather than an npm semver range because the npm package is unmaintained and older versions have known security issues (prototype pollution in `<=0.19.2`, ReDoS in `<0.20.2`) when parsing crafted files (see https://linear.app/whaitukay/issue/WHA-34/resolve-prototype-pollution-in-sheetjs). This means `npm ci` requires access to `https://cdn.sheetjs.com` (mirror the tarball internally if you need offline installs).
 
 ### Run
 
