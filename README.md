@@ -33,6 +33,8 @@ The app discovers catalogue categories on `pnp.co.za`, pulls the products for ea
 npm ci
 ```
 
+Note: `xlsx` is installed from the official SheetJS CDN tarball (`0.19.3`) rather than an npm semver range because the npm package is unmaintained and versions `<=0.19.2` are vulnerable to prototype pollution when parsing crafted files.
+
 ### Run
 
 Start the Metro bundler:
