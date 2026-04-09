@@ -23,12 +23,12 @@ export function ImportViewScreen(): React.ReactElement | null {
   const { selectedImport, setSelectedImport } = useImports();
   const [importSearch, setImportSearch] = React.useState("");
   const [importPage, setImportPage] = React.useState(0);
-  const { scrollRef, handlePageChange } = usePaginatedScroll(setImportPage);
+  const { scrollRef, handlePageChange, resetToFirstPage } = usePaginatedScroll(setImportPage);
 
   React.useEffect(() => {
     setImportSearch("");
-    setImportPage(0);
-  }, [selectedImport?.id]);
+    resetToFirstPage();
+  }, [selectedImport?.id, resetToFirstPage]);
 
   const filteredImportItems = React.useMemo(() => {
     if (!selectedImport) {
@@ -45,8 +45,8 @@ export function ImportViewScreen(): React.ReactElement | null {
   }, [filteredImportItems, importPage]);
 
   React.useEffect(() => {
-    setImportPage(0);
-  }, [importSearch]);
+    resetToFirstPage();
+  }, [importSearch, resetToFirstPage]);
 
   if (!selectedImport) {
     return null;
