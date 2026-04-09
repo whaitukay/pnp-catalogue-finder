@@ -3,12 +3,8 @@ import { ScrollView } from "react-native";
 
 import { useReduceMotionEnabled } from "./useReduceMotionEnabled";
 
-export function usePaginatedScroll(onPageChange: (nextPage: number) => void): {
-  scrollRef: React.RefObject<React.ElementRef<typeof ScrollView>>;
-  handlePageChange: (nextPage: number) => void;
-  reduceMotionEnabled: boolean;
-} {
-  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+export function usePaginatedScroll(onPageChange: (nextPage: number) => void) {
+  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView> | null>(null);
   const reduceMotionEnabled = useReduceMotionEnabled();
 
   const handlePageChange = React.useCallback(
