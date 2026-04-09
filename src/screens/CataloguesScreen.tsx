@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { DirectoryCatalogueCard, PaginationControls, ProgressButton } from "../components";
-import { useCatalogues, useSettings } from "../hooks";
+import { useCatalogues, useReduceMotionEnabled, useSettings } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
 import type { DirectoryItem } from "../utils/catalogueUi";
 import { formatDateRange, paginate } from "../utils/catalogueUi";
@@ -28,6 +28,7 @@ export function CataloguesScreen(): React.ReactElement {
 
   const [cataloguePage, setCataloguePage] = React.useState(0);
   const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+  const reduceMotionEnabled = useReduceMotionEnabled();
 
   const pagedDirectoryItems = React.useMemo(() => {
     return paginate(directoryItems, cataloguePage, CATALOGUE_PAGE_SIZE);
@@ -43,8 +44,8 @@ export function CataloguesScreen(): React.ReactElement {
 
   const handleCataloguePageChange = React.useCallback((nextPage: number) => {
     setCataloguePage(nextPage);
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, []);
+    scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotionEnabled });
+  }, [reduceMotionEnabled]);
 
   return (
     <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>

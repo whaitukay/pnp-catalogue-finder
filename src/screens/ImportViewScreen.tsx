@@ -10,7 +10,7 @@ import {
 
 import { BarcodeImage } from "../components/BarcodeImage";
 import { PaginationControls } from "../components/PaginationControls";
-import { useImports } from "../hooks";
+import { useImports, useReduceMotionEnabled } from "../hooks";
 import { sharedStyles } from "../theme";
 import type { ImportedItem } from "../types";
 import { normalizeBarcodeForRendering } from "../utils/barcodes";
@@ -24,6 +24,7 @@ export function ImportViewScreen(): React.ReactElement | null {
   const [importSearch, setImportSearch] = React.useState("");
   const [importPage, setImportPage] = React.useState(0);
   const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+  const reduceMotionEnabled = useReduceMotionEnabled();
 
   React.useEffect(() => {
     setImportSearch("");
@@ -50,8 +51,8 @@ export function ImportViewScreen(): React.ReactElement | null {
 
   const handleImportPageChange = React.useCallback((nextPage: number) => {
     setImportPage(nextPage);
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, []);
+    scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotionEnabled });
+  }, [reduceMotionEnabled]);
 
   if (!selectedImport) {
     return null;

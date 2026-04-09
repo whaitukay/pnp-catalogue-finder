@@ -2,7 +2,7 @@ import React from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { PaginationControls } from "../components/PaginationControls";
-import { useImports } from "../hooks";
+import { useImports, useReduceMotionEnabled } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
 import { formatTimestamp, paginate } from "../utils/catalogueUi";
 
@@ -12,6 +12,7 @@ export function ImportsScreen(): React.ReactElement {
   const { importsList, importFile, openImport, removeImport } = useImports();
   const [importsPage, setImportsPage] = React.useState(0);
   const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+  const reduceMotionEnabled = useReduceMotionEnabled();
 
   React.useEffect(() => {
     setImportsPage(0);
@@ -23,8 +24,8 @@ export function ImportsScreen(): React.ReactElement {
 
   const handleImportsPageChange = React.useCallback((nextPage: number) => {
     setImportsPage(nextPage);
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, []);
+    scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotionEnabled });
+  }, [reduceMotionEnabled]);
 
   return (
     <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>
