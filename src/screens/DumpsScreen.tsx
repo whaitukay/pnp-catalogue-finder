@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  AccessibilityInfo,
   ActivityIndicator,
   LayoutAnimation,
   KeyboardAvoidingView,
@@ -18,7 +17,7 @@ import type { LayoutAnimationConfig } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DumpRowCard, PaginationControls, StatusBadge } from "../components";
-import { useCatalogues } from "../hooks";
+import { useCatalogues, usePaginatedScroll } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
 import type { ProductRow } from "../types";
 import {
@@ -73,8 +72,12 @@ export function DumpsScreen({
   const insets = useSafeAreaInsets();
 
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
-  const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(true);
-  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+  const {
+    scrollRef,
+    handlePageChange: handleDumpRowsPageChange,
+    resetToFirstPage: resetDumpRowsToFirstPage,
+    reduceMotionEnabled,
+  } = usePaginatedScroll(setDumpRowsPage);
   const searchInputRef = React.useRef<React.ElementRef<typeof TextInput>>(null);
   const searchQueryRef = React.useRef(dumpSearch);
   const isAndroid = Platform.OS === "android";
@@ -88,40 +91,11 @@ export function DumpsScreen({
   const handleDumpSearchChange = React.useCallback(
     (value: string) => {
       searchQueryRef.current = value;
-      setDumpRowsPage(0);
+      resetDumpRowsToFirstPage();
       setDumpSearch(value);
     },
-    [],
+    [resetDumpRowsToFirstPage],
   );
-
-  React.useEffect(() => {
-    if (!isAndroid) {
-      return;
-    }
-
-    let mounted = true;
-    let subscription: { remove: () => void } | undefined;
-
-    void AccessibilityInfo.isReduceMotionEnabled().then((value: boolean) => {
-      if (mounted) {
-        setReduceMotionEnabled(value);
-      }
-    });
-
-    if (typeof AccessibilityInfo.addEventListener === "function") {
-      subscription = AccessibilityInfo.addEventListener(
-        "reduceMotionChanged",
-        (value: boolean) => {
-          setReduceMotionEnabled(value);
-        },
-      );
-    }
-
-    return () => {
-      mounted = false;
-      subscription?.remove();
-    };
-  }, []);
 
   const animateLayout = React.useCallback(() => {
     if (reduceMotionEnabled || !isAndroid) {
@@ -291,7 +265,7 @@ export function DumpsScreen({
         )}
 
         <PaginationControls
-          onPageChange={setDumpRowsPage}
+          onPageChange={handleDumpRowsPageChange}
           page={dumpRowsPage}
           pageSize={24}
           totalItems={filteredDumpRows.length}

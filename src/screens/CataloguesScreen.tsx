@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { DirectoryCatalogueCard, PaginationControls, ProgressButton } from "../components";
-import { useCatalogues, useSettings } from "../hooks";
+import { useCatalogues, usePaginatedScroll, useSettings } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
 import type { DirectoryItem } from "../utils/catalogueUi";
 import { formatDateRange, paginate } from "../utils/catalogueUi";
@@ -27,21 +27,22 @@ export function CataloguesScreen(): React.ReactElement {
   const { hideExpiredCatalogues } = useSettings();
 
   const [cataloguePage, setCataloguePage] = React.useState(0);
+  const { scrollRef, handlePageChange, resetToFirstPage } = usePaginatedScroll(setCataloguePage);
 
   const pagedDirectoryItems = React.useMemo(() => {
     return paginate(directoryItems, cataloguePage, CATALOGUE_PAGE_SIZE);
   }, [cataloguePage, directoryItems]);
 
   React.useEffect(() => {
-    setCataloguePage(0);
-  }, [directoryItems.length, hideExpiredCatalogues]);
+    resetToFirstPage();
+  }, [directoryItems.length, hideExpiredCatalogues, resetToFirstPage]);
 
   const downloadsDisabled = Boolean(downloadingCatalogueId) || isBulkDownloading;
   const pullAllLabel = "Download all";
   const bulkProgress = isBulkDownloading ? bulkDownloadProgressPercent : null;
 
   return (
-    <ScrollView contentContainerStyle={sharedStyles.content}>
+    <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>
       <View style={styles.heroCard}>
         <View style={sharedStyles.buttonRow}>
           <Pressable
@@ -106,7 +107,7 @@ export function CataloguesScreen(): React.ReactElement {
       )}
 
       <PaginationControls
-        onPageChange={setCataloguePage}
+        onPageChange={handlePageChange}
         page={cataloguePage}
         pageSize={CATALOGUE_PAGE_SIZE}
         totalItems={directoryItems.length}

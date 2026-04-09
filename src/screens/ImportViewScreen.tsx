@@ -10,7 +10,7 @@ import {
 
 import { BarcodeImage } from "../components/BarcodeImage";
 import { PaginationControls } from "../components/PaginationControls";
-import { useImports } from "../hooks";
+import { useImports, usePaginatedScroll } from "../hooks";
 import { sharedStyles } from "../theme";
 import type { ImportedItem } from "../types";
 import { normalizeBarcodeForRendering } from "../utils/barcodes";
@@ -23,11 +23,12 @@ export function ImportViewScreen(): React.ReactElement | null {
   const { selectedImport, setSelectedImport } = useImports();
   const [importSearch, setImportSearch] = React.useState("");
   const [importPage, setImportPage] = React.useState(0);
+  const { scrollRef, handlePageChange, resetToFirstPage } = usePaginatedScroll(setImportPage);
 
   React.useEffect(() => {
     setImportSearch("");
-    setImportPage(0);
-  }, [selectedImport?.id]);
+    resetToFirstPage();
+  }, [selectedImport?.id, resetToFirstPage]);
 
   const filteredImportItems = React.useMemo(() => {
     if (!selectedImport) {
@@ -43,16 +44,20 @@ export function ImportViewScreen(): React.ReactElement | null {
     return paginate(filteredImportItems, importPage, IMPORT_ITEMS_PAGE_SIZE);
   }, [filteredImportItems, importPage]);
 
-  React.useEffect(() => {
-    setImportPage(0);
-  }, [importSearch]);
+  const handleImportSearchChange = React.useCallback(
+    (value: string) => {
+      setImportSearch(value);
+      resetToFirstPage();
+    },
+    [resetToFirstPage],
+  );
 
   if (!selectedImport) {
     return null;
   }
 
   return (
-    <ScrollView contentContainerStyle={sharedStyles.content}>
+    <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>
       <View style={sharedStyles.buttonRow}>
         <Pressable
           onPress={() => {
@@ -85,7 +90,7 @@ export function ImportViewScreen(): React.ReactElement | null {
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
-          onChangeText={setImportSearch}
+          onChangeText={handleImportSearchChange}
           style={sharedStyles.input}
           value={importSearch}
         />
@@ -105,7 +110,7 @@ export function ImportViewScreen(): React.ReactElement | null {
       )}
 
       <PaginationControls
-        onPageChange={setImportPage}
+        onPageChange={handlePageChange}
         page={importPage}
         pageSize={IMPORT_ITEMS_PAGE_SIZE}
         totalItems={filteredImportItems.length}

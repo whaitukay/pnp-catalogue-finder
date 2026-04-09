@@ -2,7 +2,7 @@ import React from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { PaginationControls } from "../components/PaginationControls";
-import { useImports } from "../hooks";
+import { useImports, usePaginatedScroll } from "../hooks";
 import { BRAND, sharedStyles } from "../theme";
 import { formatTimestamp, paginate } from "../utils/catalogueUi";
 
@@ -11,17 +11,18 @@ const IMPORTS_PAGE_SIZE = 8;
 export function ImportsScreen(): React.ReactElement {
   const { importsList, importFile, openImport, removeImport } = useImports();
   const [importsPage, setImportsPage] = React.useState(0);
+  const { scrollRef, handlePageChange, resetToFirstPage } = usePaginatedScroll(setImportsPage);
 
   React.useEffect(() => {
-    setImportsPage(0);
-  }, [importsList.length]);
+    resetToFirstPage();
+  }, [importsList.length, resetToFirstPage]);
 
   const pagedImportsList = React.useMemo(() => {
     return paginate(importsList, importsPage, IMPORTS_PAGE_SIZE);
   }, [importsList, importsPage]);
 
   return (
-    <ScrollView contentContainerStyle={sharedStyles.content}>
+    <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>
       <View style={sharedStyles.card}>
         <Text style={sharedStyles.cardTitle}>Imported collections</Text>
         <Text style={sharedStyles.bodyText}>
@@ -102,7 +103,7 @@ export function ImportsScreen(): React.ReactElement {
       )}
 
       <PaginationControls
-        onPageChange={setImportsPage}
+        onPageChange={handlePageChange}
         page={importsPage}
         pageSize={IMPORTS_PAGE_SIZE}
         totalItems={importsList.length}
