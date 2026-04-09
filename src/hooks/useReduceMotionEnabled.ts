@@ -1,6 +1,15 @@
 import React from "react";
 import { AccessibilityInfo } from "react-native";
 
+type AccessibilityInfoCompat = {
+  isReduceMotionEnabled?: () => Promise<boolean>;
+  addEventListener?: (
+    event: string,
+    handler: (value: boolean) => void,
+  ) => { remove?: () => void } | void;
+  removeEventListener?: (event: string, handler: (value: boolean) => void) => void;
+};
+
 export function useReduceMotionEnabled(): boolean {
   const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(true);
 
@@ -9,6 +18,9 @@ export function useReduceMotionEnabled(): boolean {
     let subscription: { remove: () => void } | undefined;
     let removeListener: (() => void) | undefined;
 
+    const { isReduceMotionEnabled, addEventListener, removeEventListener } =
+      AccessibilityInfo as AccessibilityInfoCompat;
+
     const handleReduceMotionChanged = (value: boolean) => {
       if (!mounted) {
         return;
@@ -16,38 +28,25 @@ export function useReduceMotionEnabled(): boolean {
       setReduceMotionEnabled(value);
     };
 
-    const isReduceMotionEnabled = (AccessibilityInfo as { isReduceMotionEnabled?: unknown })
-      .isReduceMotionEnabled;
-
     if (typeof isReduceMotionEnabled === "function") {
-      void (isReduceMotionEnabled as () => Promise<boolean>)()
+      void isReduceMotionEnabled()
         .then(handleReduceMotionChanged)
         .catch(() => {
           // Keep the default `true` behavior (animations disabled) if the setting can't be read.
         });
     }
 
-    const addEventListener = (AccessibilityInfo as { addEventListener?: unknown }).addEventListener;
-    const removeEventListener = (AccessibilityInfo as { removeEventListener?: unknown })
-      .removeEventListener;
-
     if (typeof addEventListener === "function") {
-      const maybeSubscription = (addEventListener as (event: string, handler: (value: boolean) => void) => unknown)(
+      const maybeSubscription = addEventListener(
         "reduceMotionChanged",
         handleReduceMotionChanged,
       );
 
-      if (
-        maybeSubscription &&
-        typeof (maybeSubscription as { remove?: unknown }).remove === "function"
-      ) {
-        subscription = maybeSubscription as { remove: () => void };
+      if (maybeSubscription && typeof maybeSubscription.remove === "function") {
+        subscription = { remove: maybeSubscription.remove };
       } else if (typeof removeEventListener === "function") {
         removeListener = () => {
-          (removeEventListener as (event: string, handler: (value: boolean) => void) => void)(
-            "reduceMotionChanged",
-            handleReduceMotionChanged,
-          );
+          removeEventListener("reduceMotionChanged", handleReduceMotionChanged);
         };
       }
     }
