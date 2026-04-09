@@ -43,7 +43,7 @@ export function useReduceMotionEnabled(): boolean {
       );
 
       if (maybeSubscription && typeof maybeSubscription.remove === "function") {
-        subscription = { remove: maybeSubscription.remove };
+        subscription = maybeSubscription as { remove: () => void };
       } else if (typeof removeEventListener === "function") {
         removeListener = () => {
           removeEventListener("reduceMotionChanged", handleReduceMotionChanged);
