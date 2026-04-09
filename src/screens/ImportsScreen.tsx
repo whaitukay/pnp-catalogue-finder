@@ -11,6 +11,7 @@ const IMPORTS_PAGE_SIZE = 8;
 export function ImportsScreen(): React.ReactElement {
   const { importsList, importFile, openImport, removeImport } = useImports();
   const [importsPage, setImportsPage] = React.useState(0);
+  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
 
   React.useEffect(() => {
     setImportsPage(0);
@@ -20,8 +21,13 @@ export function ImportsScreen(): React.ReactElement {
     return paginate(importsList, importsPage, IMPORTS_PAGE_SIZE);
   }, [importsList, importsPage]);
 
+  const handleImportsPageChange = React.useCallback((nextPage: number) => {
+    setImportsPage(nextPage);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, []);
+
   return (
-    <ScrollView contentContainerStyle={sharedStyles.content}>
+    <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>
       <View style={sharedStyles.card}>
         <Text style={sharedStyles.cardTitle}>Imported collections</Text>
         <Text style={sharedStyles.bodyText}>
@@ -102,7 +108,7 @@ export function ImportsScreen(): React.ReactElement {
       )}
 
       <PaginationControls
-        onPageChange={setImportsPage}
+        onPageChange={handleImportsPageChange}
         page={importsPage}
         pageSize={IMPORTS_PAGE_SIZE}
         totalItems={importsList.length}

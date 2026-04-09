@@ -156,6 +156,14 @@ export function DumpsScreen({
     handleDumpSearchChange("");
   }, [animateLayout, handleDumpSearchChange]);
 
+  const handleDumpRowsPageChange = React.useCallback(
+    (nextPage: number) => {
+      setDumpRowsPage(nextPage);
+      scrollRef.current?.scrollTo({ y: 0, animated: !reduceMotionEnabled });
+    },
+    [reduceMotionEnabled],
+  );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -291,7 +299,7 @@ export function DumpsScreen({
         )}
 
         <PaginationControls
-          onPageChange={setDumpRowsPage}
+          onPageChange={handleDumpRowsPageChange}
           page={dumpRowsPage}
           pageSize={24}
           totalItems={filteredDumpRows.length}

@@ -46,8 +46,18 @@ export function EmailScreen({
   onEmailBodyChange,
   onSendEmail,
 }: EmailScreenProps): React.ReactElement {
+  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
+
+  const handleEmailPageChange = React.useCallback(
+    (nextPage: number) => {
+      onEmailPageChange(nextPage);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    },
+    [onEmailPageChange],
+  );
+
   return (
-    <ScrollView contentContainerStyle={sharedStyles.content}>
+    <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>
       <ViewIntro />
 
       {pagedEmailCatalogues.length > 0 ? (
@@ -88,7 +98,7 @@ export function EmailScreen({
       )}
 
       <PaginationControls
-        onPageChange={onEmailPageChange}
+        onPageChange={handleEmailPageChange}
         page={emailPage}
         pageSize={8}
         totalItems={visibleCachedCatalogues.length}

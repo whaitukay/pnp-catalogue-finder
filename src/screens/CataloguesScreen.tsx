@@ -27,6 +27,7 @@ export function CataloguesScreen(): React.ReactElement {
   const { hideExpiredCatalogues } = useSettings();
 
   const [cataloguePage, setCataloguePage] = React.useState(0);
+  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
 
   const pagedDirectoryItems = React.useMemo(() => {
     return paginate(directoryItems, cataloguePage, CATALOGUE_PAGE_SIZE);
@@ -40,8 +41,13 @@ export function CataloguesScreen(): React.ReactElement {
   const pullAllLabel = "Download all";
   const bulkProgress = isBulkDownloading ? bulkDownloadProgressPercent : null;
 
+  const handleCataloguePageChange = React.useCallback((nextPage: number) => {
+    setCataloguePage(nextPage);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, []);
+
   return (
-    <ScrollView contentContainerStyle={sharedStyles.content}>
+    <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>
       <View style={styles.heroCard}>
         <View style={sharedStyles.buttonRow}>
           <Pressable
@@ -106,7 +112,7 @@ export function CataloguesScreen(): React.ReactElement {
       )}
 
       <PaginationControls
-        onPageChange={setCataloguePage}
+        onPageChange={handleCataloguePageChange}
         page={cataloguePage}
         pageSize={CATALOGUE_PAGE_SIZE}
         totalItems={directoryItems.length}

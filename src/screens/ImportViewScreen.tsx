@@ -23,6 +23,7 @@ export function ImportViewScreen(): React.ReactElement | null {
   const { selectedImport, setSelectedImport } = useImports();
   const [importSearch, setImportSearch] = React.useState("");
   const [importPage, setImportPage] = React.useState(0);
+  const scrollRef = React.useRef<React.ElementRef<typeof ScrollView>>(null);
 
   React.useEffect(() => {
     setImportSearch("");
@@ -47,12 +48,17 @@ export function ImportViewScreen(): React.ReactElement | null {
     setImportPage(0);
   }, [importSearch]);
 
+  const handleImportPageChange = React.useCallback((nextPage: number) => {
+    setImportPage(nextPage);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, []);
+
   if (!selectedImport) {
     return null;
   }
 
   return (
-    <ScrollView contentContainerStyle={sharedStyles.content}>
+    <ScrollView contentContainerStyle={sharedStyles.content} ref={scrollRef}>
       <View style={sharedStyles.buttonRow}>
         <Pressable
           onPress={() => {
@@ -105,7 +111,7 @@ export function ImportViewScreen(): React.ReactElement | null {
       )}
 
       <PaginationControls
-        onPageChange={setImportPage}
+        onPageChange={handleImportPageChange}
         page={importPage}
         pageSize={IMPORT_ITEMS_PAGE_SIZE}
         totalItems={filteredImportItems.length}
