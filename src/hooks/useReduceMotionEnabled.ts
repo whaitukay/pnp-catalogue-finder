@@ -1,15 +1,10 @@
 import React from "react";
-import { AccessibilityInfo, Platform } from "react-native";
+import { AccessibilityInfo } from "react-native";
 
 export function useReduceMotionEnabled(): boolean {
   const [reduceMotionEnabled, setReduceMotionEnabled] = React.useState(true);
-  const isAndroid = Platform.OS === "android";
 
   React.useEffect(() => {
-    if (!isAndroid) {
-      return;
-    }
-
     let mounted = true;
     let subscription: { remove: () => void } | undefined;
 
@@ -32,7 +27,7 @@ export function useReduceMotionEnabled(): boolean {
       mounted = false;
       subscription?.remove();
     };
-  }, [isAndroid]);
+  }, []);
 
   return reduceMotionEnabled;
 }
