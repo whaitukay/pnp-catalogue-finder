@@ -34,7 +34,7 @@
     "react-native-safe-area-context": "~5.6.2",
     "react-native-svg": "15.15.3",
     "react-native-svg-transformer": "^1.5.3",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.19.3/xlsx-0.19.3.tgz"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/he": "^1.2.3",
