@@ -44,9 +44,13 @@ export function ImportViewScreen(): React.ReactElement | null {
     return paginate(filteredImportItems, importPage, IMPORT_ITEMS_PAGE_SIZE);
   }, [filteredImportItems, importPage]);
 
-  React.useEffect(() => {
-    resetToFirstPage();
-  }, [importSearch, resetToFirstPage]);
+  const handleImportSearchChange = React.useCallback(
+    (value: string) => {
+      setImportSearch(value);
+      resetToFirstPage();
+    },
+    [resetToFirstPage],
+  );
 
   if (!selectedImport) {
     return null;
@@ -86,7 +90,7 @@ export function ImportViewScreen(): React.ReactElement | null {
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
-          onChangeText={setImportSearch}
+          onChangeText={handleImportSearchChange}
           style={sharedStyles.input}
           value={importSearch}
         />

@@ -75,6 +75,7 @@ export function DumpsScreen({
   const {
     scrollRef,
     handlePageChange: handleDumpRowsPageChange,
+    resetToFirstPage: resetDumpRowsToFirstPage,
     reduceMotionEnabled,
   } = usePaginatedScroll(setDumpRowsPage);
   const searchInputRef = React.useRef<React.ElementRef<typeof TextInput>>(null);
@@ -90,10 +91,10 @@ export function DumpsScreen({
   const handleDumpSearchChange = React.useCallback(
     (value: string) => {
       searchQueryRef.current = value;
-      setDumpRowsPage(0);
+      resetDumpRowsToFirstPage();
       setDumpSearch(value);
     },
-    [],
+    [resetDumpRowsToFirstPage],
   );
 
   const animateLayout = React.useCallback(() => {
