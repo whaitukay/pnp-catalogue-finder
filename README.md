@@ -38,6 +38,8 @@ npm ci
 This project installs `xlsx` from the official SheetJS CDN tarball (`0.20.3`) rather
 than an npm semver range because the npm package is unmaintained.
 
+Pinned tarball: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+
 - Security context: older versions have known issues when parsing crafted files:
   - Prototype pollution in `<=0.19.2` (CVE-2023-30533 / GHSA-4r6h-8v6p-xvw6).
   - ReDoS in `<0.20.2` (CVE-2024-22363 / GHSA-5pgg-2g8v-p4x9).
