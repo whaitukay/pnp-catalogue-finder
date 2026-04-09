@@ -22,6 +22,9 @@ export function useReduceMotionEnabled(): boolean {
       subscription = AccessibilityInfo.addEventListener(
         "reduceMotionChanged",
         (value: boolean) => {
+          if (!mounted) {
+            return;
+          }
           setReduceMotionEnabled(value);
         },
       );

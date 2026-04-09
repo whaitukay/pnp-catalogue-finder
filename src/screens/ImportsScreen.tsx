@@ -11,11 +11,11 @@ const IMPORTS_PAGE_SIZE = 8;
 export function ImportsScreen(): React.ReactElement {
   const { importsList, importFile, openImport, removeImport } = useImports();
   const [importsPage, setImportsPage] = React.useState(0);
-  const { scrollRef, handlePageChange } = usePaginatedScroll(setImportsPage);
+  const { scrollRef, handlePageChange, resetToFirstPage } = usePaginatedScroll(setImportsPage);
 
   React.useEffect(() => {
-    setImportsPage(0);
-  }, [importsList.length]);
+    resetToFirstPage();
+  }, [importsList.length, resetToFirstPage]);
 
   const pagedImportsList = React.useMemo(() => {
     return paginate(importsList, importsPage, IMPORTS_PAGE_SIZE);

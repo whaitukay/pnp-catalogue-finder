@@ -27,15 +27,15 @@ export function CataloguesScreen(): React.ReactElement {
   const { hideExpiredCatalogues } = useSettings();
 
   const [cataloguePage, setCataloguePage] = React.useState(0);
-  const { scrollRef, handlePageChange } = usePaginatedScroll(setCataloguePage);
+  const { scrollRef, handlePageChange, resetToFirstPage } = usePaginatedScroll(setCataloguePage);
 
   const pagedDirectoryItems = React.useMemo(() => {
     return paginate(directoryItems, cataloguePage, CATALOGUE_PAGE_SIZE);
   }, [cataloguePage, directoryItems]);
 
   React.useEffect(() => {
-    setCataloguePage(0);
-  }, [directoryItems.length, hideExpiredCatalogues]);
+    resetToFirstPage();
+  }, [directoryItems.length, hideExpiredCatalogues, resetToFirstPage]);
 
   const downloadsDisabled = Boolean(downloadingCatalogueId) || isBulkDownloading;
   const pullAllLabel = "Download all";
