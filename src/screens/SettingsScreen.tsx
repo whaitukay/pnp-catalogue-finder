@@ -105,7 +105,7 @@ export function SettingsScreen(): React.ReactElement {
       <View style={sharedStyles.card}>
         <Text style={sharedStyles.cardTitle}>CSV export fields</Text>
         <Text style={sharedStyles.bodyText}>
-          Saving field changes clears cached CSV exports so the next share uses the new shape.
+          Saving field changes clears cached exports so the next share uses the new shape.
         </Text>
 
         <View style={styles.fieldList}>

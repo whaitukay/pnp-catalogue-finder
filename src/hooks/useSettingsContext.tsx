@@ -6,6 +6,7 @@ import {
   ensureStorage,
   loadSettings,
   invalidateAllCsvExports,
+  invalidateAllXlsxExports,
   saveSettings,
 } from "../services/catalogueStore";
 import type { AppSettings, ExportFieldKey } from "../types";
@@ -136,9 +137,15 @@ export function SettingsProvider({
     let invalidatedCount = 0;
     if (fieldsChanged) {
       try {
-        invalidatedCount = await invalidateAllCsvExports();
+        invalidatedCount += await invalidateAllCsvExports();
       } catch (error) {
         console.warn("Failed to invalidate cached CSV exports", error);
+      }
+
+      try {
+        invalidatedCount += await invalidateAllXlsxExports();
+      } catch (error) {
+        console.warn("Failed to invalidate cached XLSX exports", error);
       }
     }
 

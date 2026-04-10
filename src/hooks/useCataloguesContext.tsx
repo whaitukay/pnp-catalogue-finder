@@ -7,6 +7,7 @@ import {
   defaultEmailBody,
   defaultEmailSubject,
   ensureCsvForDump,
+  ensureXlsxForDump,
   listCachedCatalogues,
   loadDump,
   loadManifestCache,
@@ -17,7 +18,13 @@ import {
   scanCatalogue,
   syncAllMissingCatalogues,
 } from "../services/pnp";
-import type { CatalogueDump, CatalogueTarget, ManifestEntry, SyncSummary } from "../types";
+import type {
+  CatalogueDump,
+  CatalogueTarget,
+  ExportFormat,
+  ManifestEntry,
+  SyncSummary,
+} from "../types";
 import {
   buildDirectoryItems,
   normalizeStoreCode,
@@ -52,12 +59,12 @@ type CataloguesContextValue = {
   bulkDownloadProgressPercent: number | null;
   selectedDump: CatalogueDump | null;
   setSelectedDump: React.Dispatch<React.SetStateAction<CatalogueDump | null>>;
-  isGeneratingCsv: boolean;
+  generatingExportFormat: ExportFormat | null;
   refreshCatalogueData: (options?: RefreshCatalogueOptions) => Promise<void>;
   runPull: (forceRefresh: boolean) => Promise<void>;
   pullSingleCatalogue: (item: DirectoryItem) => Promise<void>;
   openDump: (catalogueId: string) => Promise<void>;
-  sendEmail: (catalogueId: string) => Promise<void>;
+  sendEmail: (catalogueId: string, format?: ExportFormat) => Promise<void>;
 };
 
 const CataloguesContext = createContext<CataloguesContextValue | null>(null);
@@ -80,7 +87,7 @@ export function CataloguesProvider({
   const [cachedCatalogues, setCachedCatalogues] = useState<ManifestEntry[]>([]);
   const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
   const [selectedDump, setSelectedDump] = useState<CatalogueDump | null>(null);
-  const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
+  const [generatingExportFormat, setGeneratingExportFormat] = useState<ExportFormat | null>(null);
   const [downloadingCatalogueId, setDownloadingCatalogueId] = useState<string | null>(null);
   const [downloadProgressPercent, setDownloadProgressPercent] = useState<number | null>(null);
   const [isBulkDownloading, setIsBulkDownloading] = useState(false);
@@ -299,8 +306,8 @@ export function CataloguesProvider({
   );
 
   const sendEmail = useCallback(
-    async (catalogueId: string): Promise<void> => {
-      setIsGeneratingCsv(true);
+    async (catalogueId: string, format: ExportFormat = "csv"): Promise<void> => {
+      setGeneratingExportFormat(format);
       setBusy("Preparing export...");
       clearError();
 
@@ -325,20 +332,22 @@ export function CataloguesProvider({
           }
         }
 
+        const exportLabel = format === "xlsx" ? "XLSX" : "CSV";
+
         let dumpUri: string | null = null;
-        let csvUriHint: string | undefined;
+        let exportUriHint: string | undefined;
         let label: string | null = null;
         let metadata: ManifestEntry | CatalogueDump | null = null;
 
         if (entry?.dumpUri) {
           dumpUri = entry.dumpUri;
-          csvUriHint = entry.csvUri;
+          exportUriHint = format === "xlsx" ? entry.xlsxUri : entry.csvUri;
           label = entry.label;
           metadata = entry;
         } else if (selectedDumpMatch) {
           const persisted = await saveDump(selectedDumpMatch);
           dumpUri = persisted.dumpUri;
-          csvUriHint = persisted.csvUri;
+          exportUriHint = format === "xlsx" ? persisted.xlsxUri : persisted.csvUri;
           label = persisted.dump.label;
           metadata = persisted.dump;
         }
@@ -348,32 +357,45 @@ export function CataloguesProvider({
           return;
         }
 
-        setBusy("Building CSV export...");
-        const csvUri = await ensureCsvForDump(dumpUri, csvUriHint);
+        setBusy(`Building ${exportLabel} export...`);
+        const exportUri =
+          format === "xlsx"
+            ? await ensureXlsxForDump(dumpUri, exportUriHint)
+            : await ensureCsvForDump(dumpUri, exportUriHint);
 
         if (canEmail) {
           setBusy("Opening email composer...");
           await MailComposer.composeAsync({
             subject: defaultEmailSubject(metadata),
             body: defaultEmailBody(metadata),
-            attachments: [csvUri],
+            attachments: [exportUri],
           });
           setStatus(`Email composer opened for ${label}.`);
         } else {
           setBusy("Opening share sheet...");
-          await Sharing.shareAsync(csvUri, {
-            dialogTitle: `${label} CSV`,
-            mimeType: "text/csv",
-            UTI: "public.comma-separated-values-text",
-          });
+          await Sharing.shareAsync(
+            exportUri,
+            format === "xlsx"
+              ? {
+                  dialogTitle: `${label} XLSX`,
+                  mimeType:
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                  UTI: "com.microsoft.excel.xlsx",
+                }
+              : {
+                  dialogTitle: `${label} CSV`,
+                  mimeType: "text/csv",
+                  UTI: "public.comma-separated-values-text",
+                },
+          );
           setStatus(
-            "Mail composer is unavailable on this device, so the CSV was shared instead.",
+            `Mail composer is unavailable on this device, so the ${exportLabel} was shared instead.`,
           );
         }
       } catch (error) {
         setError(errorMessage(error));
       } finally {
-        setIsGeneratingCsv(false);
+        setGeneratingExportFormat(null);
         setBusy("");
       }
     },
@@ -408,7 +430,7 @@ export function CataloguesProvider({
       bulkDownloadProgressPercent,
       selectedDump,
       setSelectedDump,
-      isGeneratingCsv,
+      generatingExportFormat,
       refreshCatalogueData,
       runPull,
       pullSingleCatalogue,
@@ -422,7 +444,7 @@ export function CataloguesProvider({
     downloadProgressPercent,
     downloadingCatalogueId,
     isBulkDownloading,
-    isGeneratingCsv,
+    generatingExportFormat,
     openDump,
     refreshCatalogueData,
     runPull,

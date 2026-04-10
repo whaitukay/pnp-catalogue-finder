@@ -38,7 +38,10 @@ type DumpsScreenProps = {
 export function DumpsScreen({
   onBackToCatalogues,
 }: DumpsScreenProps): React.ReactElement {
-  const { selectedDump, setSelectedDump, sendEmail, isGeneratingCsv } = useCatalogues();
+  const { selectedDump, setSelectedDump, sendEmail, generatingExportFormat } = useCatalogues();
+  const isGeneratingCsv = generatingExportFormat === "csv";
+  const isGeneratingXlsx = generatingExportFormat === "xlsx";
+  const isGeneratingExport = isGeneratingCsv || isGeneratingXlsx;
   const [dumpSearch, setDumpSearch] = React.useState("");
   const [dumpRowsPage, setDumpRowsPage] = React.useState(0);
 
@@ -156,13 +159,13 @@ export function DumpsScreen({
                 <Text style={sharedStyles.secondaryButtonText}>Back to catalogues</Text>
               </Pressable>
               <Pressable
-                disabled={isGeneratingCsv}
+                disabled={isGeneratingExport}
                 onPress={() => {
-                  void sendEmail(selectedDump.catalogueId);
+                  void sendEmail(selectedDump.catalogueId, "csv");
                 }}
                 style={[
                   sharedStyles.primaryButton,
-                  isGeneratingCsv ? styles.emailButtonDisabled : null,
+                  isGeneratingExport ? styles.emailButtonDisabled : null,
                 ]}
               >
                 <View style={styles.emailButtonRow}>
@@ -171,6 +174,25 @@ export function DumpsScreen({
                   ) : null}
                   <Text style={sharedStyles.primaryButtonText}>
                     {isGeneratingCsv ? "Building CSV..." : "Email this CSV"}
+                  </Text>
+                </View>
+              </Pressable>
+              <Pressable
+                disabled={isGeneratingExport}
+                onPress={() => {
+                  void sendEmail(selectedDump.catalogueId, "xlsx");
+                }}
+                style={[
+                  sharedStyles.primaryButton,
+                  isGeneratingExport ? styles.emailButtonDisabled : null,
+                ]}
+              >
+                <View style={styles.emailButtonRow}>
+                  {isGeneratingXlsx ? (
+                    <ActivityIndicator color={BRAND.white} size="small" />
+                  ) : null}
+                  <Text style={sharedStyles.primaryButtonText}>
+                    {isGeneratingXlsx ? "Building XLSX..." : "Email this XLSX"}
                   </Text>
                 </View>
               </Pressable>
