@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { BRAND } from "../theme";
 
@@ -48,13 +48,33 @@ export function StatusBanner({
 
     clearAutoDismissTimeout();
 
-    autoDismissTimeoutRef.current = setTimeout(
-      () => {
-        autoDismissTimeoutRef.current = null;
-        onDismissRef.current();
-      },
-      isError ? ERROR_AUTO_DISMISS_MS : STATUS_AUTO_DISMISS_MS,
-    );
+    const baseTimeout = isError ? ERROR_AUTO_DISMISS_MS : STATUS_AUTO_DISMISS_MS;
+
+    // Get accessibility timeout and use the larger value
+    const scheduleAutoDismiss = async () => {
+      let timeout = baseTimeout;
+
+      // AccessibilityInfo.getRecommendedTimeoutMillis is available on Android
+      if (AccessibilityInfo.getRecommendedTimeoutMillis) {
+        try {
+          const recommendedTimeout = await AccessibilityInfo.getRecommendedTimeoutMillis(baseTimeout);
+          timeout = Math.max(baseTimeout, recommendedTimeout);
+        } catch (error) {
+          // Fall back to base timeout if the API fails
+          timeout = baseTimeout;
+        }
+      }
+
+      autoDismissTimeoutRef.current = setTimeout(
+        () => {
+          autoDismissTimeoutRef.current = null;
+          onDismissRef.current();
+        },
+        timeout,
+      );
+    };
+
+    void scheduleAutoDismiss();
 
     return () => {
       clearAutoDismissTimeout();
