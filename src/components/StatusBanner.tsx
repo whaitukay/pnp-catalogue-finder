@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { BRAND } from "../theme";
 
@@ -10,12 +10,95 @@ type StatusBannerProps = {
   onDismiss: () => void;
 };
 
+const STATUS_AUTO_DISMISS_MS = 4000;
+const ERROR_AUTO_DISMISS_MS = 8000;
+
 export function StatusBanner({
   busyLabel,
   errorText,
   statusMessage,
   onDismiss,
 }: StatusBannerProps): React.ReactElement | null {
+  const onDismissRef = React.useRef(onDismiss);
+  const toastKeyRef = React.useRef<string | null>(null);
+  const autoDismissTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
+  const clearAutoDismissTimeout = React.useCallback(() => {
+    if (!autoDismissTimeoutRef.current) {
+      return;
+    }
+
+    clearTimeout(autoDismissTimeoutRef.current);
+    autoDismissTimeoutRef.current = null;
+  }, []);
+
+  const handleDismiss = React.useCallback(() => {
+    clearAutoDismissTimeout();
+    onDismissRef.current();
+  }, [clearAutoDismissTimeout]);
+
+  const isError = Boolean(errorText);
+  const toastText = errorText || statusMessage;
+
+  React.useEffect(() => {
+    if (busyLabel || !toastText) {
+      return;
+    }
+
+    clearAutoDismissTimeout();
+
+    const scheduledToastKey = `${isError ? "error" : "status"}:${toastText}`;
+    toastKeyRef.current = scheduledToastKey;
+    let cancelled = false;
+
+    const scheduleAutoDismiss = async () => {
+      const baseTimeout = isError ? ERROR_AUTO_DISMISS_MS : STATUS_AUTO_DISMISS_MS;
+      let timeout = baseTimeout;
+
+      try {
+        if (typeof AccessibilityInfo.getRecommendedTimeoutMillis === "function") {
+          const recommendedTimeout = await AccessibilityInfo.getRecommendedTimeoutMillis(baseTimeout);
+          timeout = Math.max(timeout, recommendedTimeout);
+        }
+      } catch {
+        // Ignore and fall back to the base timeout.
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      if (toastKeyRef.current !== scheduledToastKey) {
+        return;
+      }
+
+      const timeoutHandle = setTimeout(() => {
+        if (toastKeyRef.current !== scheduledToastKey) {
+          return;
+        }
+
+        if (autoDismissTimeoutRef.current === timeoutHandle) {
+          autoDismissTimeoutRef.current = null;
+        }
+
+        handleDismiss();
+      }, timeout);
+
+      autoDismissTimeoutRef.current = timeoutHandle;
+    };
+
+    void scheduleAutoDismiss();
+
+    return () => {
+      cancelled = true;
+      clearAutoDismissTimeout();
+    };
+  }, [busyLabel, clearAutoDismissTimeout, handleDismiss, isError, toastText]);
+
   if (busyLabel) {
     return (
       <View style={[styles.banner, styles.neutral]}>
@@ -25,25 +108,19 @@ export function StatusBanner({
     );
   }
 
-  if (errorText) {
+  if (toastText) {
+    const accessibilityLabel = isError ? `Error: ${toastText}` : toastText;
     return (
-      <View style={[styles.banner, styles.error]}>
-        <Text style={styles.text}>{errorText}</Text>
-        <Pressable onPress={onDismiss} style={styles.dismissButton}>
-          <Text style={styles.dismissText}>Dismiss</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  if (statusMessage) {
-    return (
-      <View style={[styles.banner, styles.success]}>
-        <Text style={styles.text}>{statusMessage}</Text>
-        <Pressable onPress={onDismiss} style={styles.dismissButton}>
-          <Text style={styles.dismissText}>Dismiss</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        onPress={handleDismiss}
+        style={[styles.banner, isError ? styles.error : styles.success]}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint="Dismisses this message"
+        accessibilityLiveRegion={isError ? "assertive" : "polite"}
+      >
+        <Text style={styles.text}>{toastText}</Text>
+      </Pressable>
     );
   }
 
@@ -73,13 +150,5 @@ const styles = StyleSheet.create({
     flex: 1,
     color: BRAND.ink,
     lineHeight: 20,
-  },
-  dismissButton: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  dismissText: {
-    color: BRAND.blue,
-    fontWeight: "700",
   },
 });
