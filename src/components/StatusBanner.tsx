@@ -58,23 +58,30 @@ export function StatusBanner({
       if (AccessibilityInfo.getRecommendedTimeoutMillis) {
         try {
           const recommendedTimeout = await AccessibilityInfo.getRecommendedTimeoutMillis(baseTimeout);
-          timeout = Math.max(baseTimeout, recommendedTimeout);
-        } catch (error) {
-          // Fall back to base timeout if the API fails
-          timeout = baseTimeout;
+  const isError = Boolean(errorText);
+  const toastText = errorText || statusMessage;
+  const toastKey = `${isError ? "error" : "status"}:${toastText}`;
+  toastKeyRef.current = toastKey;
+
+  React.useEffect(() => {
+    if (busyLabel || !toastText) {
+      return;
+    }
+
+    clearAutoDismissTimeout();
+
+    const scheduledToastKey = toastKey;
+
+    autoDismissTimeoutRef.current = setTimeout(
+      () => {
+        if (toastKeyRef.current !== scheduledToastKey) {
+          return;
         }
-      }
-
-      autoDismissTimeoutRef.current = setTimeout(
-        () => {
-          autoDismissTimeoutRef.current = null;
-          onDismissRef.current();
-        },
-        timeout,
-      );
-    };
-
-    void scheduleAutoDismiss();
+        autoDismissTimeoutRef.current = null;
+        onDismissRef.current();
+      },
+      isError ? ERROR_AUTO_DISMISS_MS : STATUS_AUTO_DISMISS_MS,
+    );
 
     return () => {
       clearAutoDismissTimeout();
