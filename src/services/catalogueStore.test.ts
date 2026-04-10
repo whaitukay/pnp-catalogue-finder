@@ -508,6 +508,7 @@ describe("catalogueStore CSV dump", () => {
 describe("catalogueStore XLSX dump", () => {
   beforeEach(() => {
     fsMock.files.clear();
+    vi.clearAllMocks();
   });
 
   it("ignores non-xlsx uri hints", async () => {

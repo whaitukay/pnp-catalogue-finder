@@ -518,7 +518,12 @@ async function writeXlsxForDump(
   fields: ExportFieldKey[],
 ): Promise<void> {
   const workbook = buildXlsx(dump, fields);
-  const encoded = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+  const encoded = XLSX.write(workbook, {
+    type: "base64",
+    bookType: "xlsx",
+    compression: true,
+    bookSST: true,
+  });
   await FileSystem.writeAsStringAsync(xlsxUri, encoded, {
     encoding: FileSystem.EncodingType.Base64,
   });
