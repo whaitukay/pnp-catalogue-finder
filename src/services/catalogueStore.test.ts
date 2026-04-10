@@ -510,6 +510,39 @@ describe("catalogueStore XLSX dump", () => {
     fsMock.files.clear();
   });
 
+  it("ignores non-xlsx uri hints", async () => {
+    const dump: CatalogueDump = {
+      catalogueId: "WC21:hint",
+      storeCode: "WC21",
+      label: "hint",
+      slug: "hint",
+      query: ":relevance:allCategories:hint",
+      sourceUrl: "https://example.test/hint",
+      discoveredFrom: "sample",
+      exportedAt: 1_774_608_000_000,
+      itemCount: 0,
+      barcodeCount: 0,
+      catalogueStartDate: Date.parse("2026-03-26T22:00:00.000Z"),
+      catalogueEndDate: Date.parse("2026-03-27T21:59:59.000Z"),
+      expired: false,
+      rows: [],
+    };
+
+    const persisted = await saveDump(dump);
+    const csvUri = persisted.csvUri;
+    const xlsxUri = persisted.xlsxUri;
+    if (!csvUri || !xlsxUri) {
+      throw new Error("Expected saveDump to return csvUri and xlsxUri paths.");
+    }
+
+    fsMock.files.set(csvUri, "existing-csv");
+
+    const ensuredXlsxUri = await ensureXlsxForDump(persisted.dumpUri, csvUri);
+    expect(ensuredXlsxUri).toBe(xlsxUri);
+    expect(ensuredXlsxUri).not.toBe(csvUri);
+    expect(fsMock.files.has(ensuredXlsxUri)).toBe(true);
+  });
+
   it("sanitizes cell values starting with spreadsheet formulas", async () => {
     const dump: CatalogueDump = {
       catalogueId: "WC21:formula",

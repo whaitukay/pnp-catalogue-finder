@@ -635,7 +635,11 @@ export async function ensureXlsxForDump(
 ): Promise<string> {
   await ensureStorage();
 
-  const safeXlsxUriHint = getSafeExportUri(xlsxUri);
+  const isXlsxUri = (value: string | undefined): value is string => {
+    return typeof value === "string" && value.toLowerCase().endsWith(".xlsx");
+  };
+
+  const safeXlsxUriHint = isXlsxUri(xlsxUri) ? getSafeExportUri(xlsxUri) : undefined;
   if (safeXlsxUriHint && (await fileExists(safeXlsxUriHint))) {
     return safeXlsxUriHint;
   }
@@ -645,7 +649,7 @@ export async function ensureXlsxForDump(
     throw new Error("That catalogue dump is no longer available.");
   }
 
-  const safeDumpXlsxUri = getSafeExportUri(dump.xlsxUri);
+  const safeDumpXlsxUri = isXlsxUri(dump.xlsxUri) ? getSafeExportUri(dump.xlsxUri) : undefined;
   if (safeDumpXlsxUri && (await fileExists(safeDumpXlsxUri))) {
     return safeDumpXlsxUri;
   }
