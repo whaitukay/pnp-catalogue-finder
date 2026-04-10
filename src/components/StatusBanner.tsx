@@ -20,9 +20,12 @@ export function StatusBanner({
   onDismiss,
 }: StatusBannerProps): React.ReactElement | null {
   const onDismissRef = React.useRef(onDismiss);
+  const toastKeyRef = React.useRef<string | null>(null);
   const autoDismissTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  onDismissRef.current = onDismiss;
+  React.useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   const clearAutoDismissTimeout = React.useCallback(() => {
     if (!autoDismissTimeoutRef.current) {
@@ -48,45 +51,53 @@ export function StatusBanner({
 
     clearAutoDismissTimeout();
 
-    const baseTimeout = isError ? ERROR_AUTO_DISMISS_MS : STATUS_AUTO_DISMISS_MS;
+    const scheduledToastKey = `${isError ? "error" : "status"}:${toastText}`;
+    toastKeyRef.current = scheduledToastKey;
+    let cancelled = false;
 
-    // Get accessibility timeout and use the larger value
     const scheduleAutoDismiss = async () => {
+      const baseTimeout = isError ? ERROR_AUTO_DISMISS_MS : STATUS_AUTO_DISMISS_MS;
       let timeout = baseTimeout;
 
-      // AccessibilityInfo.getRecommendedTimeoutMillis is available on Android
-      if (AccessibilityInfo.getRecommendedTimeoutMillis) {
-        try {
+      try {
+        if (typeof AccessibilityInfo.getRecommendedTimeoutMillis === "function") {
           const recommendedTimeout = await AccessibilityInfo.getRecommendedTimeoutMillis(baseTimeout);
-  const isError = Boolean(errorText);
-  const toastText = errorText || statusMessage;
-  const toastKey = `${isError ? "error" : "status"}:${toastText}`;
-  toastKeyRef.current = toastKey;
+          timeout = Math.max(timeout, recommendedTimeout);
+        }
+      } catch {
+        // Ignore and fall back to the base timeout.
+      }
 
-  React.useEffect(() => {
-    if (busyLabel || !toastText) {
-      return;
-    }
+      if (cancelled) {
+        return;
+      }
 
-    clearAutoDismissTimeout();
+      if (toastKeyRef.current !== scheduledToastKey) {
+        return;
+      }
 
-    const scheduledToastKey = toastKey;
-
-    autoDismissTimeoutRef.current = setTimeout(
-      () => {
+      const timeoutHandle = setTimeout(() => {
         if (toastKeyRef.current !== scheduledToastKey) {
           return;
         }
-        autoDismissTimeoutRef.current = null;
-        onDismissRef.current();
-      },
-      isError ? ERROR_AUTO_DISMISS_MS : STATUS_AUTO_DISMISS_MS,
-    );
+
+        if (autoDismissTimeoutRef.current === timeoutHandle) {
+          autoDismissTimeoutRef.current = null;
+        }
+
+        handleDismiss();
+      }, timeout);
+
+      autoDismissTimeoutRef.current = timeoutHandle;
+    };
+
+    void scheduleAutoDismiss();
 
     return () => {
+      cancelled = true;
       clearAutoDismissTimeout();
     };
-  }, [busyLabel, clearAutoDismissTimeout, isError, toastText]);
+  }, [busyLabel, clearAutoDismissTimeout, handleDismiss, isError, toastText]);
 
   if (busyLabel) {
     return (
